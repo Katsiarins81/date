@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запись на занятия</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+        .slot-free { background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; }
+        .slot-free:hover { box-shadow: 0 0 20px rgba(16,185,129,0.4); transform: translateY(-2px); }
+        .slot-occupied { background: linear-gradient(135deg, #7f1d1d, #6b1a1a); border: 1px solid #ef4444; }
+        .slot-my { background: linear-gradient(135deg, #1e3a5f, #1e3a5f); border: 1px solid #3b82f6; }
+        .slot-my:hover { box-shadow: 0 0 20px rgba(59,130,246,0.4); transform: translateY(-2px); }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .btn-primary:hover { background: linear-gradient(135deg, #2563eb, #4f46e5); }
+        .day-tab.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
+        .day-tab { background: rgba(51,65,85,0.5); color: #94a3b8; }
+        .day-tab:hover:not(.active) { background: rgba(71,85,105,0.7); color: #e2e8f0; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-bg { background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(30,41,59,0.5); }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        input, select, textarea { background: rgba(30,41,59,0.9) !important; border: 1px solid rgba(71,85,105,0.5) !important; color: white !important; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    </style>
+</head>
+<body>
+
+<header class="glass sticky top-0 z-50 border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xl">📅</div>
+            <div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Расписание занятий</h1>
+                <p class="text-xs text-slate-500">Запись онлайн</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="toggleAdmin()" id="btnAdmin" class="px-3 py-1.5 rounded-lg text-sm glass hover:bg-white/10 transition-all">⚙️ Админ</button>
+            <button onclick="openMyBookings()" class="px-3 py-1.5 rounded-lg text-sm bg-blue-600 hover:bg-blue-700 transition-all">📋 Мои записи</button>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-5">
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="glass rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-400" id="stFree">0</div>
+            <div class="text-xs text-slate-400">Свободно</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-red-400" id="stBusy">0</div>
+            <div class="text-xs text-slate-400">Занято</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-blue-400" id="stTotal">0</div>
+            <div class="text-xs text-slate-400">Всего слотов</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-purple-400" id="stTypes">0</div>
+            <div class="text-xs text-slate-400">Видов занятий</div>
+        </div>
+    </div>
+
+    <!-- Week Nav -->
+    <div class="glass rounded-xl p-4 mb-5">
+        <div class="flex items-center justify-between mb-3">
+            <button onclick="navWeek(-1)" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">◀</button>
+            <h2 class="font-semibold text-sm" id="weekLabel"></h2>
+            <button onclick="navWeek(1)" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">▶</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1.5" id="dayTabs"></div>
+    </div>
+
+    <!-- Filter -->
+    <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+        <span class="text-xs text-slate-500 whitespace-nowrap">Фильтр:</span>
+        <button onclick="setFilter('all')" id="f-all" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white transition-all">Все</button>
+        <div id="filterBtns" class="flex gap-1.5"></div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="glass rounded-xl p-4 mb-5">
+        <div id="grid" class="space-y-2"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex flex-wrap gap-5 text-xs text-slate-400 mb-5">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-700 border border-emerald-500 inline-block"></span> Свободно</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-900 border border-red-600 inline-block"></span> Занято</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-900 border border-blue-500 inline-block"></span> Ваша запись</span>
+    </div>
+
+</main>
+
+<!-- BOOKING MODAL -->
+<div id="mBooking" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
+    <div class="glass rounded-2xl p-6 max-w-md w-full mx-4 fade-in">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold">📝 Запись на занятие</h3>
+            <button onclick="closeM('mBooking')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <div id="bkInfo" class="mb-4 p-3 rounded-lg bg-white/5 text-sm"></div>
+        <form onsubmit="doBooking(event)" class="space-y-3">
+            <input type="text" id="bkName" required placeholder="Ваше имя *" class="w-full px-3 py-2 rounded-lg border">
+            <input type="tel" id="bkPhone" required placeholder="Телефон *" class="w-full px-3 py-2 rounded-lg border">
+            <input type="email" id="bkEmail" placeholder="Email" class="w-full px-3 py-2 rounded-lg border">
+            <textarea id="bkComment" rows="2" placeholder="Комментарий..." class="w-full px-3 py-2 rounded-lg border resize-none"></textarea>
+            <button type="submit" class="w-full py-2.5 rounded-lg btn-primary font-semibold transition-all">✅ Записаться</button>
+        </form>
+    </div>
+</div>
+
+<!-- MY BOOKINGS MODAL -->
+<div id="mMy" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
+    <div class="glass rounded-2xl p-6 max-w-lg w-full mx-4 fade-in">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold">📋 Мои записи</h3>
+            <button onclick="closeM('mMy')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <div id="myList" class="space-y-2 max-h-80 overflow-y-auto"></div>
+    </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="mAdmin" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
+    <div class="glass rounded-2xl p-5 max-w-2xl w-full mx-4 fade-in max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold">⚙️ Панель администратора</h3>
+            <button onclick="closeM('mAdmin')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <div class="flex gap-2 mb-4">
+            <button onclick="admTab('slots')" id="at-slots" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white">Слоты</button>
+            <button onclick="admTab('classes')" id="at-classes" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Занятия</button>
+            <button onclick="admTab('bookings')" id="at-bookings" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Все записи</button>
+        </div>
+
+        <!-- ADD CLASS -->
+        <div id="tab-classes" class="hidden space-y-3">
+            <div class="bg-white/5 rounded-xl p-4">
+                <h4 class="font-semibold mb-3 text-sm">Добавить вид занятия</h4>
+                <form onsubmit="addClass(event)" class="grid grid-cols-2 gap-2">
+                    <input type="text" id="ncName" placeholder="Название *" required class="px-3 py-2 rounded-lg border col-span-1">
+                    <input type="text" id="ncTeacher" placeholder="Преподаватель" class="px-3 py-2 rounded-lg border col-span-1">
+                    <input type="number" id="ncDuration" placeholder="Минуты" value="60" class="px-3 py-2 rounded-lg border col-span-1">
+                    <input type="text" id="ncEmoji" placeholder="Эмодзи" value="📚" class="px-3 py-2 rounded-lg border col-span-1">
+                    <button type="submit" class="col-span-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-medium">➕ Добавить</button>
+                </form>
+            </div>
+            <div id="classesList" class="space-y-1.5"></div>
+        </div>
+
+        <!-- ADD SLOTS -->
+        <div id="tab-slots" class="space-y-3">
+            <div class="bg-white/5 rounded-xl p-4">
+                <h4 class="font-semibold mb-3 text-sm">Добавить слоты</h4>
+                <form onsubmit="addSlots(event)" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-400">Дата начала недели</label><input type="date" id="sWeek" required class="w-full px-3 py-2 rounded-lg border"></div>
+                        <div><label class="text-xs text-slate-400">Занятие</label><select id="sClass" class="w-full px-3 py-2 rounded-lg border"></select></div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1">Дни</label>
+                        <div class="flex flex-wrap gap-1.5">
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="1" class="accent-blue-500">Пн</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="2" class="accent-blue-500">Вт</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="3" class="accent-blue-500">Ср</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="4" class="accent-blue-500">Чт</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="5" class="accent-blue-500">Пт</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="6" class="accent-blue-500">Сб</label>
+                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="0" class="accent-blue-500">Вс</label>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="text-xs text-slate-400">Начало</label><input type="time" id="sTStart" value="09:00" required class="w-full px-3 py-2 rounded-lg border"></div>
+                        <div><label class="text-xs text-slate-400">Конец</label><input type="time" id="sTEnd" value="10:00" required class="w-full px-3 py-2 rounded-lg border"></div>
+                        <div><label class="text-xs text-slate-400">Макс. мест</label><input type="number" id="sMax" value="1" min="1" class="w-full px-3 py-2 rounded-lg border"></div>
+                    </div>
+                    <button type="submit" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-medium">➕ Создать слоты</button>
+                </form>
+            </div>
+            <div id="slotsList" class="space-y-1.5"></div>
+        </div>
+
+        <!-- ALL BOOKINGS -->
+        <div id="tab-bookings" class="hidden space-y-2">
+            <div id="allBookingsList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="fixed bottom-5 right-5 z-[60] hidden">
+    <div class="glass rounded-xl px-5 py-3 fade-in flex items-center gap-2 text-sm">
+        <span id="toastI"></span><span id="toastT" class="font-medium"></span>
+    </div>
+</div>
+
+<script>
+// ==================== DB ====================
+const DB = {
+    get(k) { const d = localStorage.getItem(k); return d ? JSON.parse(d) : null; },
+    set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
+    init() {
+        if (!this.get('classes')) this.set('classes', [
+            { id: 'c1', name: 'Йога', teacher: 'Анна Петрова', dur: 60, emoji: '🧘' },
+            { id: 'c2', name: 'Пилатес', teacher: 'Мария Иванова', dur: 45, emoji: '💪' },
+            { id: 'c3', name: 'Танцы', teacher: 'Елена Сидорова', dur: 90, emoji: '💃' },
+            { id: 'c4', name: 'Бокс', teacher: 'Дмитрий Козлов', dur: 60, emoji: '🥊' },
+            { id: 'c5', name: 'Плавание', teacher: 'Олег Морозов', dur: 45, emoji: '🏊' }
+        ]);
+        if (!this.get('slots')) this.genSlots();
+        if (!this.get('bookings')) this.set('bookings', []);
+        if (!this.get('uid')) this.set('uid', 'u' + Date.now() + Math.random().toString(36).slice(2, 8));
+    },
+    genSlots() {
+        const S = []; const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1);
+        const map = [
+            { c: 'c1', d: [1,3,5], t: [['09:00','10:00'],['18:00','19:00']] },
+            { c: 'c2', d: [2,4], t: [['10:00','10:45'],['17:00','17:45']] },
+            { c: 'c3', d: [1,3,5], t: [['11:00','12:30'],['19:00','20:30']] },
+            { c: 'c4', d: [2,4,6], t: [['09:00','10:00'],['16:00','17:00']] },
+            { c: 'c5', d: [1,2,3,4,5], t: [['08:00','08:45'],['12:00','12:45'],['15:00','15:45']] }
+        ];
+        for (let w = 0; w < 4; w++) {
+            const ws = new Date(mon); ws.setDate(mon.getDate() + w * 7);
+            map.forEach(m => m.d.forEach(day => m.t.forEach(t => {
+                const dt = new Date(ws); dt.setDate(ws.getDate() + day - 1);
+                S.push({ id: 's' + dt.toISOString().split('T')[0].replace(/-/g,'') + m.c + t[0].replace(':',''), classId: m.c, date: dt.toISOString().split('T')[0], tStart: t[0], tEnd: t[1], max: m.c === 'c3' ? 2 : 1 });
+            })));
+        }
+        this.set('slots', S);
+    }
+};
+
+// ==================== STATE ====================
+let wkOff = 0, selDate = null, selSlot = null, filt = 'all', admin = false;
+const DN = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+const MN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DNF = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+
+// ==================== INIT ====================
+DB.init();
+(function init() {
+    const t = new Date(); selDate = t.toISOString().split('T')[0];
+    drawDays(); drawFilters(); drawGrid(); stats(); admClassSelect();
+    const mon = new Date(t); mon.setDate(t.getDate() - t.getDay() + 1);
+    const sw = document.getElementById('sWeek'); if(sw) sw.value = mon.toISOString().split('T')[0];
+})();
+
+// ==================== WEEK ====================
+function weekDates(off) {
+    const t = new Date(); const m = new Date(t); m.setDate(t.getDate() - t.getDay() + 1 + off * 7);
+    return Array.from({length: 7}, (_, i) => { const d = new Date(m); d.setDate(m.getDate() + i); return d; });
+}
+
+function drawDays() {
+    const dates = weekDates(wkOff); const c = document.getElementById('dayTabs');
+    const a = dates[0], b = dates[6];
+    document.getElementById('weekLabel').textContent = a.getDate() + ' ' + MN[a.getMonth()] + ' — ' + b.getDate() + ' ' + MN[b.getMonth()] + ' ' + b.getFullYear();
+    const today = new Date().toISOString().split('T')[0];
+    c.innerHTML = dates.map(d => {
+        const ds = d.toISOString().split('T')[0];
+        const act = ds === selDate;
+        const tdy = ds === today;
+        return `<button onclick="pickDay('${ds}')" class="day-tab ${act ? 'active' : ''} rounded-lg py-2.5 text-center transition-all ${tdy && !act ? 'ring-1 ring-blue-500' : ''}">
+            <div class="text-[10px] opacity-70">${DN[d.getDay()]}</div>
+            <div class="text-base font-bold">${d.getDate()}</div>
+        </button>`;
+    }).join('');
+}
+
+function navWeek(d) { wkOff += d; drawDays(); drawGrid(); }
+function pickDay(ds) { selDate = ds; drawDays(); drawGrid(); }
+
+// ==================== FILTERS ====================
+function drawFilters() {
+    const cls = DB.get('classes') || [];
+    document.getElementById('filterBtns').innerHTML = cls.map(c =>
+        `<button onclick="setFilter('${c.id}')" id="f-${c.id}" class="filter-btn px-3 py-1 rounded-full text-xs font-medium glass text-slate-400 transition-all">${c.emoji} ${c.name}</button>`
+    ).join('');
+}
+
+function setFilter(id) {
+    filt = id;
+    document.querySelectorAll('.filter-btn').forEach(b => { b.classList.remove('bg-blue-600','text-white'); b.classList.add('glass','text-slate-400'); });
+    const ab = document.getElementById('f-' + id);
+    if (ab) { ab.classList.add('bg-blue-600','text-white'); ab.classList.remove('glass','text-slate-400'); }
+    drawGrid();
+}
+
+// ==================== SCHEDULE ====================
+function slotsFor(date) {
+    const slots = (DB.get('slots') || []).filter(s => s.date === date);
+    const bks = DB.get('bookings') || [];
+    const cls = DB.get('classes') || [];
+    let f = filt === 'all' ? slots : slots.filter(s => s.classId === filt);
+    f.sort((a, b) => a.tStart.localeCompare(b.tStart));
+    return f.map(s => {
+        const ci = cls.find(c => c.id === s.classId);
+        const sb = bks.filter(b => b.slotId === s.id);
+        return { ...s, ci, bks: sb, cnt: sb.length, busy: sb.length >= s.max, mine: sb.some(b => b.uid === DB.get('uid')) };
+    });
+}
+
+function drawGrid() {
+    const c = document.getElementById('grid');
+    const slots = slotsFor(selDate);
+    if (!slots.length) { c.innerHTML = '<div class="text-center py-10 text-slate-500"><div class="text-4xl mb-3">📭</div><p>Нет занятий</p></div>'; return; }
+    const d = new Date(selDate);
+    c.innerHTML = slots.map(s => {
+        let cl, txt, act;
+        if (s.mine) { cl = 'slot-my'; txt = `Ваша запись (${s.cnt}/${s.max})`; act = `<button onclick="cancel('${s.id}')" class="text-xs text-red-400 hover:text-red-300 underline">Отменить</button>`; }
+        else if (s.busy) { cl = 'slot-occupied'; txt = `Занято (${s.cnt}/${s.max})`; act = ''; }
+        else { cl = 'slot-free'; txt = `Свободно (${s.max - s.cnt} мест)`; act = `<button onclick="openBk('${s.id}')" class="text-xs text-white hover:underline">Записаться</button>`; }
+        return `<div class="${cl} rounded-xl p-3 transition-all duration-200 fade-in">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="text-2xl">${s.ci ? s.ci.emoji : '📚'}</div>
+                    <div>
+                        <div class="font-semibold text-sm">${s.ci ? s.ci.name : 'Занятие'}</div>
+                        <div class="text-xs text-slate-300">🕐 ${s.tStart}—${s.tEnd} · ${s.ci ? s.ci.dur + ' мин' : ''}${s.ci && s.ci.teacher ? ' · 👤 ' + s.ci.teacher : ''}</div>
+                    </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <div class="text-xs font-medium mb-0.5">${txt}</div>
+                    ${act}
+                </div>
+            </div>
+            ${s.bks.length ? `<div class="mt-2 pt-2 border-t border-white/10 flex flex-wrap gap-1">${s.bks.map(b => `<span class="text-[10px] px-1.5 py-0.5 rounded bg-white/10">${b.uid === DB.get('uid') ? '🔵 Вы' : '👤 ' + b.name}</span>`).join('')}</div>` : ''}
+        </div>`;
+    }).join('');
+}
+
+// ==================== STATS ====================
+function stats() {
+    const sl = DB.get('slots') || [], bk = DB.get('bookings') || [], cl = DB.get('classes') || [];
+    let fr = 0, bu = 0;
+    sl.forEach(s => { if (bk.filter(b => b.slotId === s.id).length >= s.max) bu++; else fr++; });
+    document.getElementById('stFree').textContent = fr;
+    document.getElementById('stBusy').textContent = bu;
+    document.getElementById('stTotal').textContent = sl.length;
+    document.getElementById('stTypes').textContent = cl.length;
+}
+
+// ==================== BOOKING ====================
+function openBk(id) {
+    const sl = (DB.get('slots') || []).find(s => s.id === id); if (!sl) return;
+    selSlot = id;
+    const cl = (DB.get('classes') || []).find(c => c.id === sl.classId);
+    const d = new Date(sl.date);
+    document.getElementById('bkInfo').innerHTML = `<div class="flex items-center gap-2"><span class="text-xl">${cl ? cl.emoji : '📚'}</span><div><div class="font-semibold">${cl ? cl.name : 'Занятие'}</div><div class="text-slate-400">${d.getDate()} ${MN[d.getMonth()]} · ${sl.tStart}—${sl.tEnd}${cl && cl.teacher ? ' · ' + cl.teacher : ''}</div></div></div>`;
+    document.getElementById('mBooking').classList.remove('hidden'); document.getElementById('mBooking').classList.add('flex');
+}
+
+function doBooking(e) {
+    e.preventDefault();
+    const nm = document.getElementById('bkName').value.trim(), ph = document.getElementById('bkPhone').value.trim(),
+          em = document.getElementById('bkEmail').value.trim(), cm = document.getElementById('bkComment').value.trim();
+    if (!nm || !ph) { toast('❌', 'Заполните обязательные поля'); return; }
+    const bks = DB.get('bookings') || [], uid = DB.get('uid');
+    if (bks.find(b => b.slotId === selSlot && b.uid === uid)) { toast('⚠️', 'Вы уже записаны'); return; }
+    bks.push({ id: 'b' + Date.now(), slotId: selSlot, uid, name: nm, phone: ph, email: em, comment: cm, at: new Date().toISOString() });
+    DB.set('bookings', bks); closeM('mBooking'); drawGrid(); stats();
+    ['bkName','bkPhone','bkEmail','bkComment'].forEach(id => document.getElementById(id).value = '');
+    toast('✅', 'Вы записаны!');
+}
+
+function cancel(id) {
+    if (!confirm('Отменить запись?')) return;
+    DB.set('bookings', (DB.get('bookings') || []).filter(b => !(b.slotId === id && b.uid === DB.get('uid'))));
+    drawGrid(); stats(); toast('🗑️', 'Запись отменена');
+}
+
+// ==================== MY BOOKINGS ====================
+function openMyBookings() {
+    const bks = (DB.get('bookings') || []).filter(b => b.uid === DB.get('uid'));
+    const sl = DB.get('slots') || [], cl = DB.get('classes') || [], c = document.getElementById('myList');
+    if (!bks.length) { c.innerHTML = '<div class="text-center py-8 text-slate-500"><div class="text-3xl mb-2">📋</div><p>Нет записей</p></div>'; }
+    else {
+        c.innerHTML = bks.map(b => {
+            const s = sl.find(x => x.id === b.slotId), ci = s ? cl.find(x => x.id === s.classId) : null, d = s ? new Date(s.date) : null,
+                  past = d && d < new Date(new Date().toDateString());
+            return `<div class="bg-white/5 rounded-lg p-3 fade-in ${past ? 'opacity-40' : ''}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2"><span class="text-lg">${ci ? ci.emoji : '📚'}</span><div>
+                        <div class="font-medium text-sm">${ci ? ci.name : 'Занятие'} ${past ? '<span class="text-[10px] text-slate-500">(прошло)</span>' : ''}</div>
+                        <div class="text-xs text-slate-400">${d ? d.getDate() + ' ' + MN[d.getMonth()] : ''} ${s ? '· ' + s.tStart + '—' + s.tEnd : ''}</div>
+                    </div></div>
+                    ${!past ? `<button onclick="cancelFromMy('${b.slotId}')" class="text-xs text-red-400 hover:text-red-300 underline">Отменить</button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+    document.getElementById('mMy').classList.remove('hidden'); document.getElementById('mMy').classList.add('flex');
+}
+
+function cancelFromMy(id) { cancel(id); openMyBookings(); }
+
+// ==================== ADMIN ====================
+function toggleAdmin() {
+    if (!admin) { const p = prompt('Пароль администратора:'); if (p !== 'admin') { if (p !== null) toast('❌', 'Неверный пароль'); return; } admin = true; document.getElementById('btnAdmin').textContent = '⚙️ Админ ✓'; document.getElementById('btnAdmin').classList.add('bg-amber-600'); }
+    document.getElementById('mAdmin').classList.remove('hidden'); document.getElementById('mAdmin').classList.add('flex');
+    admSlots(); admClasses(); admBookings();
+}
+
+function admTab(t) {
+    ['slots','classes','bookings'].forEach(x => { document.getElementById('tab-' + x).classList.toggle('hidden', x !== t); const b = document.getElementById('at-' + x); b.classList.toggle('bg-blue-600', x === t); b.classList.toggle('text-white', x === t); b.classList.toggle('glass', x !== t); b.classList.toggle('text-slate-400', x !== t); });
+}
+
+function admClassSelect() {
+    const cl = DB.get('classes') || [];
+    document.getElementById('sClass').innerHTML = cl.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+}
+
+function addClass(e) {
+    e.preventDefault();
+    const cl = DB.get('classes') || [];
+    cl.push({ id: 'c' + Date.now(), name: document.getElementById('ncName').value.trim(), teacher: document.getElementById('ncTeacher').value.trim(), dur: parseInt(document.getElementById('ncDuration').value) || 60, emoji: document.getElementById('ncEmoji').value || '📚' });
+    DB.set('classes', cl);
+    ['ncName','ncTeacher','ncDuration','ncEmoji'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('ncDuration').value = '60'; document.getElementById('ncEmoji').value = '📚';
+    admClasses(); admClassSelect(); drawFilters(); stats(); toast('✅', 'Занятие добавлено');
+}
+
+function admClasses() {
+    const cl = DB.get('classes') || [];
+    document.getElementById('classesList').innerHTML = cl.map(c => `<div class="bg-white/5 rounded-lg p-2.5 flex items-center justify-between fade-in"><div class="flex items-center gap-2"><span>${c.emoji}</span><div><div class="text-sm font-medium">${c.name}</div><div class="text-[10px] text-slate-400">${c.teacher || '—'} · ${c.dur} мин</div></div></div><button onclick="delClass('${c.id}')" class="text-red-400 hover:text-red-300 text-xs">Удалить</button></div>`).join('');
+}
+
+function delClass(id) {
+    if (!confirm('Удалить?')) return;
+    DB.set('classes', (DB.get('classes') || []).filter(c => c.id !== id));
+    admClasses(); admClassSelect(); drawFilters(); stats(); toast('🗑️', 'Удалено');
+}
+
+function addSlots(e) {
+    e.preventDefault();
+    const ws = document.getElementById('sWeek').value, cid = document.getElementById('sClass').value,
+          ts = document.getElementById('sTStart').value, te = document.getElementById('sTEnd').value, mx = parseInt(document.getElementById('sMax').value) || 1;
+    const days = []; document.querySelectorAll('#tab-slots input[type=checkbox]:checked').forEach(cb => days.push(+cb.value));
+    if (!days.length) { toast('❌', 'Выберите дни'); return; }
+    const sl = DB.get('slots') || []; const w = new Date(ws); let n = 0;
+    days.forEach(day => {
+        const d = new Date(w); d.setDate(w.getDate() + (day - w.getDay() + 7) % 7);
+        const ds = d.toISOString().split('T')[0], sid = 's' + ds.replace(/-/g,'') + cid + ts.replace(':','');
+        if (!sl.find(s => s.id === sid)) { sl.push({ id: sid, classId: cid, date: ds, tStart: ts, tEnd: te, max: mx }); n++; }
+    });
+    DB.set('slots', sl); admSlots(); drawGrid(); stats(); toast('✅', `+${n} слотов`);
+}
+
+function admSlots() {
+    const sl = DB.get('slots') || [], bk = DB.get('bookings') || [], cl = DB.get('classes') || [];
+    const t = new Date(), ws = new Date(t); ws.setDate(t.getDate() - t.getDay() + 1);
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const wk = sl.filter(s => { const d = new Date(s.date); return d >= ws && d <= we; }).sort((a, b) => a.date.localeCompare(b.date) || a.tStart.localeCompare(b.tStart));
+    document.getElementById('slotsList').innerHTML = wk.length ? wk.map(s => {
+        const ci = cl.find(c => c.id === s.classId), sb = bk.filter(b => b.slotId === s.id), d = new Date(s.date);
+        return `<div class="bg-white/5 rounded-lg p-2.5 flex items-center justify-between fade-in"><div><div class="text-sm font-medium">${ci ? ci.emoji + ' ' + ci.name : '?'}</div><div class="text-[10px] text-slate-400">${DNF[d.getDay()]}, ${d.getDate()} ${MN[d.getMonth()]} · ${s.tStart}—${s.tEnd} · ${sb.length}/${s.max}</div></div><button onclick="delSlot('${s.id}')" class="text-red-400 hover:text-red-300 text-xs">Удалить</button></div>`;
+    }).join('') : '<div class="text-center text-slate-500 py-4 text-sm">Нет слотов</div>';
+}
+
+function delSlot(id) {
+    if (!confirm('Удалить слот и все записи?')) return;
+    DB.set('slots', (DB.get('slots') || []).filter(s => s.id !== id));
+    DB.set('bookings', (DB.get('bookings') || []).filter(b => b.slotId !== id));
+    admSlots(); drawGrid(); stats(); toast('🗑️', 'Слот удалён');
+}
+
+function admBookings() {
+    const bks = DB.get('bookings') || [], sl = DB.get('slots') || [], cl = DB.get('classes') || [];
+    const c = document.getElementById('allBookingsList');
+    if (!bks.length) { c.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Нет записей</div>'; return; }
+    c.innerHTML = bks.sort((a, b) => b.at.localeCompare(a.at)).map(b => {
+        const s = sl.find(x => x.id === b.slotId), ci = s ? cl.find(x => x.id === s.classId) : null, d = s ? new Date(s.date) : null;
+        return `<div class="bg-white/5 rounded-lg p-2.5 fade-in"><div class="flex items-center justify-between"><div><div class="text-sm font-medium">${ci ? ci.emoji + ' ' + ci.name : '?'}</div><div class="text-xs text-slate-400">👤 ${b.name} · 📞 ${b.phone}</div><div class="text-[10px] text-slate-500">${d ? d.getDate() + ' ' + MN[d.getMonth()] : ''} ${s ? '· ' + s.tStart + '—' + s.tEnd : ''} ${b.email ? '· ' + b.email : ''}</div></div><button onclick="admCancel('${b.id}')" class="text-red-400 hover:text-red-300 text-xs">Отменить</button></div></div>`;
+    }).join('');
+}
+
+function admCancel(id) {
+    if (!confirm('Отменить запись?')) return;
+    DB.set('bookings', (DB.get('bookings') || []).filter(b => b.id !== id));
+    admBookings(); drawGrid(); stats(); toast('🗑️', 'Отменено');
+}
+
+// ==================== UTILS ====================
+function closeM(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+document.addEventListener('click', e => { if (e.target.classList.contains('modal-bg')) { e.target.classList.add('hidden'); e.target.classList.remove('flex'); } });
+
+function toast(icon, text) {
+    const t = document.getElementById('toast'); document.getElementById('toastI').textContent = icon; document.getElementById('toastT').textContent = text;
+    t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 3000);
+}
+</script>
+</body>
+</html>
+
