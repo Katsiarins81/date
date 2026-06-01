@@ -21,7 +21,7 @@
         .day-tab { background: rgba(51,65,85,0.5); color: #94a3b8; cursor: pointer; transition: all 0.2s; }
         .day-tab:hover:not(.active) { background: rgba(71,85,105,0.7); color: #e2e8f0; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
-        
+          
         .overflow-y-auto {
     position: absolute !important;
     top: 30px;
@@ -98,7 +98,7 @@
 
     <div class="glass rounded-xl p-4 mb-5"><div id="grid" class="space-y-2"></div></div>
     <div class="flex flex-wrap gap-5 text-xs text-slate-400">
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-700 border border-emerald-500" style={background: #10b981;}></span> Свободно</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-700 border border-emerald-500"></span> Свободно</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-900 border border-red-600"></span> Занято</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-900 border border-blue-500"></span> Ваша запись</span>
     </div>
@@ -150,7 +150,7 @@
             <div id="classesList" class="space-y-2 scrollable-list"></div>
         </div>
         
-        <!-- Вкладка: Слоты (ВСЕ слоты) -->
+        <!-- Вкладка: Слоты (только будущие) -->
         <div id="tab-slots" class="space-y-3">
             <div class="bg-white/5 rounded-xl p-4">
                 <h4 class="font-semibold mb-3 text-sm text-blue-400">➕ Создать новые слоты</h4>
@@ -173,7 +173,7 @@
             </div>
             
             <div class="flex justify-between items-center mt-4">
-                <h4 class="font-semibold text-sm text-blue-400">📋 Все существующие слоты</h4>
+                <h4 class="font-semibold text-sm text-blue-400">📋 Актуальные слоты (только будущие)</h4>
                 <button id="refreshSlotsBtn" class="text-xs text-blue-400 hover:text-blue-300 px-3 py-1 rounded glass">🔄 Обновить список</button>
             </div>
             <div id="slotsList" class="space-y-2 scrollable-list"></div>
@@ -211,7 +211,7 @@ let allClasses = [];
 
 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-const dayNamesFull = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const dayNamesFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 
 // ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
 async function loadClasses() {
@@ -674,13 +674,13 @@ async function handleAddSlots(event) {
     await updateStats();
 }
 
-// ==================== ИСПРАВЛЕННАЯ ФУНКЦИЯ - ПОКАЗЫВАЕТ ВСЕ СЛОТЫ ====================
+// ==================== ОСНОВНАЯ ФУНКЦИЯ - ПОКАЗЫВАЕТ ТОЛЬКО БУДУЩИЕ СЛОТЫ ====================
 async function refreshAdminSlots() {
     // Загружаем ВСЕ слоты из базы данных
     const { data: slots, error } = await supabaseClient
         .from('slots')
         .select('*, class_types(*)')
-        .order('slot_date', { ascending: false })
+        .order('slot_date', { ascending: true })
         .order('time_start', { ascending: true });
     
     if (error) {
@@ -699,9 +699,24 @@ async function refreshAdminSlots() {
         return;
     }
     
-    // Группируем слоты по месяцам для удобства
+    // ФИЛЬТР: Оставляем только будущие и сегодняшние слоты
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Обнуляем время для корректного сравнения
+    
+    const futureSlots = slots.filter(slot => {
+        const slotDate = new Date(slot.slot_date);
+        slotDate.setHours(0, 0, 0, 0);
+        return slotDate >= today; // Оставляем сегодня и будущие даты
+    });
+    
+    if (!futureSlots.length) {
+        container.innerHTML = '<div class="text-center text-slate-500 py-8 text-sm">✨ Нет будущих слотов. Создайте новые слоты выше.</div>';
+        return;
+    }
+    
+    // Группируем оставшиеся слоты по месяцам
     const groupedSlots = {};
-    slots.forEach(slot => {
+    futureSlots.forEach(slot => {
         const date = new Date(slot.slot_date);
         const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
         const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
@@ -720,19 +735,19 @@ async function refreshAdminSlots() {
         html += group.slots.map(slot => {
             const currentBookings = bookingCount[slot.id] || 0;
             const date = new Date(slot.slot_date);
-            const isPast = date < new Date(new Date().toDateString());
+            const isToday = date.toDateString() === today.toDateString();
             const isFull = currentBookings >= slot.max_capacity;
             return `
-                <div class="bg-white/5 rounded-lg p-2.5 flex justify-between items-center fade-in ${isPast ? 'opacity-40' : ''} hover:bg-white/10 transition-all">
+                <div class="bg-white/5 rounded-lg p-2.5 flex justify-between items-center fade-in hover:bg-white/10 transition-all">
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
                             <span class="text-lg">${slot.class_types?.emoji || '📚'}</span>
                             <span class="text-sm font-medium">${slot.class_types?.name || 'Занятие'}</span>
-                            ${isPast ? '<span class="text-[9px] text-slate-500 bg-black/30 px-1.5 py-0.5 rounded">прошёл</span>' : ''}
-                            ${isFull && !isPast ? '<span class="text-[9px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">полный</span>' : ''}
+                            ${isToday ? '<span class="text-[9px] text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded">сегодня</span>' : ''}
+                            ${isFull ? '<span class="text-[9px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">полный</span>' : ''}
                         </div>
                         <div class="text-[10px] text-slate-400 mt-1">
-                            📅 ${dayNamesFull[date.getDay()]}, ${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()} · 
+                            📅 ${dayNames[date.getDay()]}, ${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()} · 
                             ⏰ ${slot.time_start}—${slot.time_end} · 
                             👥 <span class="${isFull ? 'text-red-400' : 'text-emerald-400'}">${currentBookings}/${slot.max_capacity}</span>
                         </div>
@@ -805,7 +820,7 @@ async function refreshAdminBookings() {
                             👤 ${b.client_name} · 📞 ${b.client_phone}${b.client_email ? ' · ✉️ ' + b.client_email : ''}
                         </div>
                         <div class="text-[10px] text-slate-500 mt-1">
-                            📅 ${slot ? dayNamesFull[slotDate.getDay()] + ', ' + slotDate.getDate() + ' ' + monthNames[slotDate.getMonth()] + ' · ⏰ ' + slot.time_start + '—' + slot.time_end : '—'}
+                            📅 ${slot ? dayNames[slotDate.getDay()] + ', ' + slotDate.getDate() + ' ' + monthNames[slotDate.getMonth()] + ' · ⏰ ' + slot.time_start + '—' + slot.time_end : '—'}
                         </div>
                         <div class="text-[9px] text-slate-600 mt-1">📝 Записано: ${bookingDate.toLocaleString('ru-RU')}</div>
                         ${b.comment ? `<div class="text-[10px] text-slate-500 mt-1 italic">💬 ${b.comment}</div>` : ''}
