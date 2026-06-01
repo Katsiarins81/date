@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запись на занятия - Онлайн система</title>
+    <title>Запись на занятия</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        * { font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background: #0f172a; color: #e2e8f0; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
-        .slot-free { background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; cursor: pointer; }
+        .slot-free { background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; cursor: pointer; transition: all 0.2s; }
         .slot-free:hover { box-shadow: 0 0 20px rgba(16,185,129,0.4); transform: translateY(-2px); }
         .slot-occupied { background: linear-gradient(135deg, #7f1d1d, #6b1a1a); border: 1px solid #ef4444; opacity: 0.7; }
         .slot-my { background: linear-gradient(135deg, #1e3a5f, #1e3a5f); border: 1px solid #3b82f6; }
@@ -23,9 +23,6 @@
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .modal-bg { background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: rgba(30,41,59,0.5); }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
         input, select, textarea { background: rgba(30,41,59,0.9) !important; border: 1px solid rgba(71,85,105,0.5) !important; color: white !important; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
         button { cursor: pointer; }
@@ -43,377 +40,297 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="window.toggleAdmin()" id="btnAdmin" class="px-3 py-1.5 rounded-lg text-sm glass hover:bg-white/10 transition-all">⚙️ Админ</button>
-            <button onclick="window.openMyBookings()" class="px-3 py-1.5 rounded-lg text-sm bg-blue-600 hover:bg-blue-700 transition-all">📋 Мои записи</button>
+            <button id="adminBtn" class="px-3 py-1.5 rounded-lg text-sm glass hover:bg-white/10 transition-all">⚙️ Админ</button>
+            <button id="myBookingsBtn" class="px-3 py-1.5 rounded-lg text-sm bg-blue-600 hover:bg-blue-700 transition-all">📋 Мои записи</button>
         </div>
     </div>
 </header>
 
 <main class="max-w-7xl mx-auto px-4 py-5">
-
-    <!-- Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div class="glass rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold text-emerald-400" id="stFree">0</div>
-            <div class="text-xs text-slate-400">Свободно</div>
-        </div>
-        <div class="glass rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold text-red-400" id="stBusy">0</div>
-            <div class="text-xs text-slate-400">Занято</div>
-        </div>
-        <div class="glass rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold text-blue-400" id="stTotal">0</div>
-            <div class="text-xs text-slate-400">Всего слотов</div>
-        </div>
-        <div class="glass rounded-xl p-4 text-center">
-            <div class="text-2xl font-bold text-purple-400" id="stTypes">0</div>
-            <div class="text-xs text-slate-400">Видов занятий</div>
-        </div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-emerald-400" id="stFree">0</div><div class="text-xs text-slate-400">Свободно</div></div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-red-400" id="stBusy">0</div><div class="text-xs text-slate-400">Занято</div></div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-blue-400" id="stTotal">0</div><div class="text-xs text-slate-400">Всего слотов</div></div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-purple-400" id="stTypes">0</div><div class="text-xs text-slate-400">Видов занятий</div></div>
     </div>
 
-    <!-- Week Nav -->
     <div class="glass rounded-xl p-4 mb-5">
         <div class="flex items-center justify-between mb-3">
-            <button onclick="window.navWeek(-1)" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">◀</button>
+            <button id="prevWeekBtn" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">◀</button>
             <h2 class="font-semibold text-sm" id="weekLabel"></h2>
-            <button onclick="window.navWeek(1)" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">▶</button>
+            <button id="nextWeekBtn" class="w-9 h-9 rounded-lg hover:bg-white/10 transition-all text-lg">▶</button>
         </div>
         <div class="grid grid-cols-7 gap-1.5" id="dayTabs"></div>
     </div>
 
-    <!-- Filter -->
     <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         <span class="text-xs text-slate-500 whitespace-nowrap">Фильтр:</span>
-        <button onclick="window.setFilter('all')" id="f-all" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white transition-all">Все</button>
+        <button data-filter="all" class="filter-btn px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">Все</button>
         <div id="filterBtns" class="flex gap-1.5"></div>
     </div>
 
-    <!-- Schedule -->
-    <div class="glass rounded-xl p-4 mb-5">
-        <div id="grid" class="space-y-2"></div>
-    </div>
-
-    <!-- Legend -->
+    <div class="glass rounded-xl p-4 mb-5"><div id="grid" class="space-y-2"></div></div>
     <div class="flex flex-wrap gap-5 text-xs text-slate-400">
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-700 border border-emerald-500 inline-block"></span> Свободно</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-900 border border-red-600 inline-block"></span> Занято</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-900 border border-blue-500 inline-block"></span> Ваша запись</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-700 border border-emerald-500"></span> Свободно</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-900 border border-red-600"></span> Занято</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-900 border border-blue-500"></span> Ваша запись</span>
     </div>
-
 </main>
 
 <!-- Модальные окна -->
 <div id="mBooking" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
     <div class="glass rounded-2xl p-6 max-w-md w-full mx-4 fade-in">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold">📝 Запись на занятие</h3>
-            <button onclick="window.closeM('mBooking')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
-        </div>
+        <div class="flex justify-between mb-4"><h3 class="text-lg font-bold">📝 Запись</h3><button class="closeModalBtn text-slate-400 hover:text-white text-2xl">&times;</button></div>
         <div id="bkInfo" class="mb-4 p-3 rounded-lg bg-white/5 text-sm"></div>
-        <form onsubmit="window.doBooking(event)" class="space-y-3">
+        <form id="bookingForm" class="space-y-3">
             <input type="text" id="bkName" required placeholder="Ваше имя *" class="w-full px-3 py-2 rounded-lg border">
             <input type="tel" id="bkPhone" required placeholder="Телефон *" class="w-full px-3 py-2 rounded-lg border">
             <input type="email" id="bkEmail" placeholder="Email" class="w-full px-3 py-2 rounded-lg border">
             <textarea id="bkComment" rows="2" placeholder="Комментарий..." class="w-full px-3 py-2 rounded-lg border resize-none"></textarea>
-            <button type="submit" class="w-full py-2.5 rounded-lg btn-primary font-semibold transition-all">✅ Записаться</button>
+            <button type="submit" class="w-full py-2.5 rounded-lg btn-primary font-semibold">✅ Записаться</button>
         </form>
     </div>
 </div>
 
 <div id="mMy" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
     <div class="glass rounded-2xl p-6 max-w-lg w-full mx-4 fade-in">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold">📋 Мои записи</h3>
-            <button onclick="window.closeM('mMy')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
-        </div>
+        <div class="flex justify-between mb-4"><h3 class="text-lg font-bold">📋 Мои записи</h3><button class="closeModalBtn text-slate-400 hover:text-white text-2xl">&times;</button></div>
         <div id="myList" class="space-y-2 max-h-80 overflow-y-auto"></div>
     </div>
 </div>
 
 <div id="mAdmin" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
     <div class="glass rounded-2xl p-5 max-w-2xl w-full mx-4 fade-in max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold">⚙️ Панель администратора</h3>
-            <button onclick="window.closeM('mAdmin')" class="text-slate-400 hover:text-white text-2xl">&times;</button>
-        </div>
+        <div class="flex justify-between mb-4"><h3 class="text-lg font-bold">⚙️ Админ</h3><button class="closeModalBtn text-slate-400 hover:text-white text-2xl">&times;</button></div>
         <div class="flex gap-2 mb-4">
-            <button onclick="window.admTab('slots')" id="at-slots" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white">Слоты</button>
-            <button onclick="window.admTab('classes')" id="at-classes" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Занятия</button>
-            <button onclick="window.admTab('bookings')" id="at-bookings" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Все записи</button>
+            <button data-tab="slots" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white">Слоты</button>
+            <button data-tab="classes" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Занятия</button>
+            <button data-tab="bookings" class="adm-tab px-3 py-1.5 rounded-lg text-xs font-medium glass text-slate-400">Все записи</button>
         </div>
-
         <div id="tab-classes" class="hidden space-y-3">
-            <div class="bg-white/5 rounded-xl p-4">
-                <h4 class="font-semibold mb-3 text-sm">Добавить вид занятия</h4>
-                <form onsubmit="window.addClass(event)" class="grid grid-cols-2 gap-2">
-                    <input type="text" id="ncName" placeholder="Название *" required class="px-3 py-2 rounded-lg border col-span-1">
-                    <input type="text" id="ncTeacher" placeholder="Преподаватель" class="px-3 py-2 rounded-lg border col-span-1">
-                    <input type="number" id="ncDuration" placeholder="Минуты" value="60" class="px-3 py-2 rounded-lg border col-span-1">
-                    <input type="text" id="ncEmoji" placeholder="Эмодзи" value="📚" class="px-3 py-2 rounded-lg border col-span-1">
-                    <button type="submit" class="col-span-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-medium">➕ Добавить</button>
+            <div class="bg-white/5 rounded-xl p-4"><h4 class="font-semibold mb-3 text-sm">Добавить занятие</h4>
+                <form id="addClassForm" class="grid grid-cols-2 gap-2">
+                    <input type="text" id="ncName" placeholder="Название" required class="px-3 py-2 rounded-lg border">
+                    <input type="text" id="ncTeacher" placeholder="Преподаватель" class="px-3 py-2 rounded-lg border">
+                    <input type="number" id="ncDuration" placeholder="Минуты" value="60" class="px-3 py-2 rounded-lg border">
+                    <input type="text" id="ncEmoji" placeholder="Эмодзи" value="📚" class="px-3 py-2 rounded-lg border">
+                    <button type="submit" class="col-span-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm">➕ Добавить</button>
                 </form>
             </div>
             <div id="classesList" class="space-y-1.5"></div>
         </div>
-
         <div id="tab-slots" class="space-y-3">
-            <div class="bg-white/5 rounded-xl p-4">
-                <h4 class="font-semibold mb-3 text-sm">Добавить слоты</h4>
-                <form onsubmit="window.addSlots(event)" class="space-y-3">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div><label class="text-xs text-slate-400">Дата начала недели</label><input type="date" id="sWeek" required class="w-full px-3 py-2 rounded-lg border"></div>
-                        <div><label class="text-xs text-slate-400">Занятие</label><select id="sClass" class="w-full px-3 py-2 rounded-lg border"></select></div>
-                    </div>
-                    <div>
-                        <label class="text-xs text-slate-400 block mb-1">Дни</label>
-                        <div class="flex flex-wrap gap-1.5">
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="1" class="accent-blue-500">Пн</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="2" class="accent-blue-500">Вт</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="3" class="accent-blue-500">Ср</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="4" class="accent-blue-500">Чт</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="5" class="accent-blue-500">Пт</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="6" class="accent-blue-500">Сб</label>
-                            <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="0" class="accent-blue-500">Вс</label>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div><label class="text-xs text-slate-400">Начало</label><input type="time" id="sTStart" value="09:00" required class="w-full px-3 py-2 rounded-lg border"></div>
-                        <div><label class="text-xs text-slate-400">Конец</label><input type="time" id="sTEnd" value="10:00" required class="w-full px-3 py-2 rounded-lg border"></div>
-                        <div><label class="text-xs text-slate-400">Макс. мест</label><input type="number" id="sMax" value="1" min="1" class="w-full px-3 py-2 rounded-lg border"></div>
-                    </div>
-                    <button type="submit" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-medium">➕ Создать слоты</button>
+            <div class="bg-white/5 rounded-xl p-4"><h4 class="font-semibold mb-3 text-sm">Добавить слоты</h4>
+                <form id="addSlotsForm" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2"><input type="date" id="sWeek" required class="px-3 py-2 rounded-lg border"><select id="sClass" class="px-3 py-2 rounded-lg border"></select></div>
+                    <div><div class="flex flex-wrap gap-1.5" id="dayCheckboxes"></div></div>
+                    <div class="grid grid-cols-3 gap-2"><input type="time" id="sTStart" value="09:00" required class="px-3 py-2 rounded-lg border"><input type="time" id="sTEnd" value="10:00" required class="px-3 py-2 rounded-lg border"><input type="number" id="sMax" value="1" min="1" class="px-3 py-2 rounded-lg border"></div>
+                    <button type="submit" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm">➕ Создать</button>
                 </form>
             </div>
             <div id="slotsList" class="space-y-1.5"></div>
         </div>
-
-        <div id="tab-bookings" class="hidden space-y-2">
-            <div id="allBookingsList"></div>
-        </div>
+        <div id="tab-bookings" class="hidden space-y-2"><div id="allBookingsList"></div></div>
     </div>
 </div>
 
-<div id="toast" class="fixed bottom-5 right-5 z-[60] hidden">
-    <div class="glass rounded-xl px-5 py-3 fade-in flex items-center gap-2 text-sm">
-        <span id="toastI"></span><span id="toastT" class="font-medium"></span>
-    </div>
-</div>
+<div id="toast" class="fixed bottom-5 right-5 z-[60] hidden"><div class="glass rounded-xl px-5 py-3 fade-in flex items-center gap-2 text-sm"><span id="toastI"></span><span id="toastT"></span></div></div>
 
 <script>
-// ==================== НАСТРОЙКИ SUPABASE ====================
-// ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ НА ВАШИ!
-const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';  // или sb_publishable_xxx
+// ==================== НАСТРОЙКИ SUPABASE (ЗАМЕНИТЕ НА ВАШИ) ====================
+const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co/rest/v1/;  // ЗАМЕНИТЕ!
+const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';  // ЗАМЕНИТЕ!
 
-// Создаем клиент Supabase (ТОЛЬКО ОДИН РАЗ)
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// СОЗДАЕМ КЛИЕНТ ТОЛЬКО ОДИН РАЗ
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
-let wkOff = 0;
-let selDate = null;
-let selSlot = null;
-let filt = 'all';
-let admin = false;
-let clientUID = localStorage.getItem('client_uid');
-let classesData = [];
+// ==================== ПЕРЕМЕННЫЕ ====================
+let currentWeekOffset = 0;
+let selectedDate = null;
+let selectedSlotId = null;
+let currentFilter = 'all';
+let isAdmin = false;
+let clientUid = localStorage.getItem('client_uid');
+let allClasses = [];
 
-const DN = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const MN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-const DNF = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const dayNamesFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 
-// ==================== ФУНКЦИИ ====================
-
+// ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
 async function loadClasses() {
-    const { data, error } = await supabase
-        .from('class_types')
-        .select('*')
-        .order('id');
-    
-    if (error) {
-        console.error('Ошибка загрузки занятий:', error);
-        return [];
-    }
-    
-    classesData = data;
-    return data;
+    const { data, error } = await supabaseClient.from('class_types').select('*').order('id');
+    if (!error) allClasses = data;
+    return allClasses;
 }
 
 async function loadSlotsForDate(date) {
-    const { data: slots, error } = await supabase
+    const { data: slots, error } = await supabaseClient
         .from('slots')
-        .select(`
-            *,
-            class_types (*)
-        `)
+        .select('*, class_types(*)')
         .eq('slot_date', date)
         .order('time_start');
+    if (error) return [];
     
-    if (error) {
-        console.error('Ошибка загрузки слотов:', error);
-        return [];
-    }
-    
-    if (slots.length > 0 && clientUID) {
-        const slotIds = slots.map(s => s.id);
-        const { data: bookings, error: bookingsError } = await supabase
+    if (slots.length && clientUid) {
+        const { data: bookings } = await supabaseClient
             .from('bookings')
             .select('*')
-            .in('slot_id', slotIds)
+            .in('slot_id', slots.map(s => s.id))
             .eq('status', 'active')
-            .eq('client_uid', clientUID);
+            .eq('client_uid', clientUid);
         
-        if (!bookingsError) {
-            slots.forEach(slot => {
-                const slotBookings = bookings.filter(b => b.slot_id === slot.id);
-                slot.current_bookings = slotBookings.length;
-                slot.is_my_booking = slotBookings.length > 0;
-                slot.bookings_list = slotBookings;
-            });
-        }
-    } else {
-        // Если нет UID, просто считаем все записи для отображения занятости
-        if (slots.length > 0) {
-            const slotIds = slots.map(s => s.id);
-            const { data: bookings, error: bookingsError } = await supabase
-                .from('bookings')
-                .select('slot_id')
-                .in('slot_id', slotIds)
-                .eq('status', 'active');
-            
-            const bookingsCount = {};
-            bookings?.forEach(b => {
-                bookingsCount[b.slot_id] = (bookingsCount[b.slot_id] || 0) + 1;
-            });
-            
-            slots.forEach(slot => {
-                slot.current_bookings = bookingsCount[slot.id] || 0;
-                slot.is_my_booking = false;
-            });
-        }
+        const bookingMap = new Map();
+        bookings?.forEach(b => bookingMap.set(b.slot_id, true));
+        
+        slots.forEach(slot => {
+            slot.isMyBooking = bookingMap.has(slot.id);
+        });
     }
+    
+    // Подсчет занятости
+    const { data: allBookings } = await supabaseClient
+        .from('bookings')
+        .select('slot_id')
+        .in('slot_id', slots.map(s => s.id))
+        .eq('status', 'active');
+    
+    const bookingCount = {};
+    allBookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
+    
+    slots.forEach(slot => {
+        slot.currentBookings = bookingCount[slot.id] || 0;
+    });
     
     return slots;
 }
 
 async function updateStats() {
-    const { data: slots, error } = await supabase
-        .from('slots')
-        .select('id, max_capacity');
+    const { data: slots } = await supabaseClient.from('slots').select('id, max_capacity');
+    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
     
-    if (error) return;
-    
-    const { data: bookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select('slot_id')
-        .eq('status', 'active');
-    
-    if (bookingsError) return;
-    
-    const bookingsCount = {};
-    bookings?.forEach(b => {
-        bookingsCount[b.slot_id] = (bookingsCount[b.slot_id] || 0) + 1;
-    });
+    const bookingCount = {};
+    bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
     
     let free = 0, busy = 0;
     slots?.forEach(slot => {
-        const currentBookings = bookingsCount[slot.id] || 0;
-        if (currentBookings >= slot.max_capacity) {
-            busy++;
-        } else {
-            free++;
-        }
+        if ((bookingCount[slot.id] || 0) >= slot.max_capacity) busy++;
+        else free++;
     });
     
     document.getElementById('stFree').textContent = free;
     document.getElementById('stBusy').textContent = busy;
     document.getElementById('stTotal').textContent = slots?.length || 0;
-    document.getElementById('stTypes').textContent = classesData.length;
+    document.getElementById('stTypes').textContent = allClasses.length;
 }
 
-function weekDates(off) {
-    const t = new Date();
-    const m = new Date(t);
-    m.setDate(t.getDate() - t.getDay() + 1 + off * 7);
+function getWeekDates(offset) {
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
     return Array.from({length: 7}, (_, i) => {
-        const d = new Date(m);
-        d.setDate(m.getDate() + i);
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
         return d;
     });
 }
 
-async function drawDays() {
-    const dates = weekDates(wkOff);
-    const a = dates[0], b = dates[6];
-    document.getElementById('weekLabel').textContent = a.getDate() + ' ' + MN[a.getMonth()] + ' — ' + b.getDate() + ' ' + MN[b.getMonth()] + ' ' + b.getFullYear();
+async function renderDays() {
+    const dates = getWeekDates(currentWeekOffset);
+    const start = dates[0], end = dates[6];
+    document.getElementById('weekLabel').textContent = `${start.getDate()} ${monthNames[start.getMonth()]} — ${end.getDate()} ${monthNames[end.getMonth()]} ${end.getFullYear()}`;
     
-    const today = new Date().toISOString().split('T')[0];
-    const c = document.getElementById('dayTabs');
-    c.innerHTML = dates.map(d => {
-        const ds = d.toISOString().split('T')[0];
-        const act = ds === selDate;
-        const tdy = ds === today;
-        return `<button onclick="window.pickDay('${ds}')" class="day-tab ${act ? 'active' : ''} rounded-lg py-2.5 text-center transition-all ${tdy && !act ? 'ring-1 ring-blue-500' : ''}">
-            <div class="text-[10px] opacity-70">${DN[d.getDay()]}</div>
+    const todayStr = new Date().toISOString().split('T')[0];
+    const container = document.getElementById('dayTabs');
+    container.innerHTML = dates.map(d => {
+        const dateStr = d.toISOString().split('T')[0];
+        const isActive = dateStr === selectedDate;
+        const isToday = dateStr === todayStr;
+        return `<button data-date="${dateStr}" class="day-btn day-tab ${isActive ? 'active' : ''} rounded-lg py-2.5 text-center transition-all ${isToday && !isActive ? 'ring-1 ring-blue-500' : ''}">
+            <div class="text-[10px] opacity-70">${dayNames[d.getDay()]}</div>
             <div class="text-base font-bold">${d.getDate()}</div>
         </button>`;
     }).join('');
-}
-
-function navWeek(d) { wkOff += d; drawDays(); drawGrid(); }
-function pickDay(ds) { selDate = ds; drawDays(); drawGrid(); }
-
-async function drawFilters() {
-    const cls = classesData;
-    const filterBtns = document.getElementById('filterBtns');
-    filterBtns.innerHTML = cls.map(c =>
-        `<button onclick="window.setFilter('${c.id}')" id="f-${c.id}" class="filter-btn px-3 py-1 rounded-full text-xs font-medium glass text-slate-400 transition-all">${c.emoji} ${c.name}</button>`
-    ).join('');
-}
-
-function setFilter(id) {
-    filt = id;
-    document.querySelectorAll('.filter-btn').forEach(b => {
-        b.classList.remove('bg-blue-600', 'text-white');
-        b.classList.add('glass', 'text-slate-400');
-    });
-    const ab = document.getElementById('f-' + id);
-    if (ab) {
-        ab.classList.add('bg-blue-600', 'text-white');
-        ab.classList.remove('glass', 'text-slate-400');
-    }
-    drawGrid();
-}
-
-async function drawGrid() {
-    const slots = await loadSlotsForDate(selDate);
-    let filteredSlots = filt === 'all' ? slots : slots.filter(s => s.class_id === parseInt(filt));
     
-    const c = document.getElementById('grid');
-    if (!filteredSlots.length) {
-        c.innerHTML = '<div class="text-center py-10 text-slate-500"><div class="text-4xl mb-3">📭</div><p>Нет занятий</p></div>';
+    document.querySelectorAll('.day-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectDate(btn.dataset.date));
+    });
+}
+
+function selectDate(dateStr) {
+    selectedDate = dateStr;
+    renderDays();
+    renderSchedule();
+}
+
+function changeWeek(delta) {
+    currentWeekOffset += delta;
+    renderDays();
+    renderSchedule();
+}
+
+async function renderFilters() {
+    const container = document.getElementById('filterBtns');
+    container.innerHTML = allClasses.map(c => 
+        `<button data-filter="${c.id}" class="filter-item filter-btn px-3 py-1 rounded-full text-xs font-medium glass text-slate-400 transition-all">${c.emoji} ${c.name}</button>`
+    ).join('');
+    
+    document.querySelectorAll('.filter-item').forEach(btn => {
+        btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
+    });
+}
+
+function applyFilter(filterId) {
+    currentFilter = filterId;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('glass', 'text-slate-400');
+    });
+    const activeBtn = document.querySelector(`[data-filter="${filterId}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+        activeBtn.classList.remove('glass', 'text-slate-400');
+    }
+    const allBtn = document.querySelector('[data-filter="all"]');
+    if (filterId === 'all' && allBtn) {
+        allBtn.classList.add('bg-blue-600', 'text-white');
+        allBtn.classList.remove('glass', 'text-slate-400');
+    }
+    renderSchedule();
+}
+
+async function renderSchedule() {
+    let slots = await loadSlotsForDate(selectedDate);
+    if (currentFilter !== 'all') {
+        slots = slots.filter(s => s.class_id === parseInt(currentFilter));
+    }
+    
+    const container = document.getElementById('grid');
+    if (!slots.length) {
+        container.innerHTML = '<div class="text-center py-10 text-slate-500"><div class="text-4xl mb-3">📭</div><p>Нет занятий</p></div>';
         return;
     }
     
-    c.innerHTML = filteredSlots.map(slot => {
-        let cl, txt, act;
-        const isFull = slot.current_bookings >= slot.max_capacity;
+    container.innerHTML = slots.map(slot => {
+        const isFull = slot.currentBookings >= slot.max_capacity;
+        let slotClass = '', statusText = '', actionButton = '';
         
-        if (slot.is_my_booking) {
-            cl = 'slot-my';
-            txt = `Ваша запись (${slot.current_bookings}/${slot.max_capacity})`;
-            act = `<button onclick="window.cancelBooking('${slot.id}')" class="text-xs text-red-400 hover:text-red-300 underline">Отменить</button>`;
+        if (slot.isMyBooking) {
+            slotClass = 'slot-my';
+            statusText = `Ваша запись (${slot.currentBookings}/${slot.max_capacity})`;
+            actionButton = `<button class="cancel-booking-btn text-xs text-red-400 hover:text-red-300 underline" data-slot="${slot.id}">Отменить</button>`;
         } else if (isFull) {
-            cl = 'slot-occupied';
-            txt = `Занято (${slot.current_bookings}/${slot.max_capacity})`;
-            act = '';
+            slotClass = 'slot-occupied';
+            statusText = `Занято (${slot.currentBookings}/${slot.max_capacity})`;
+            actionButton = '';
         } else {
-            cl = 'slot-free';
-            txt = `Свободно (${slot.max_capacity - slot.current_bookings} мест)`;
-            act = `<button onclick="window.openBooking('${slot.id}')" class="text-xs text-white hover:underline">Записаться</button>`;
+            slotClass = 'slot-free';
+            statusText = `Свободно (${slot.max_capacity - slot.currentBookings} мест)`;
+            actionButton = `<button class="book-slot-btn text-xs text-white hover:underline" data-slot="${slot.id}">Записаться</button>`;
         }
         
         const classInfo = slot.class_types;
-        return `<div class="${cl} rounded-xl p-3 transition-all duration-200 fade-in">
+        return `<div class="${slotClass} rounded-xl p-3 transition-all duration-200 fade-in">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="text-2xl">${classInfo?.emoji || '📚'}</div>
@@ -423,260 +340,239 @@ async function drawGrid() {
                     </div>
                 </div>
                 <div class="text-right flex-shrink-0">
-                    <div class="text-xs font-medium mb-0.5">${txt}</div>
-                    ${act}
+                    <div class="text-xs font-medium mb-0.5">${statusText}</div>
+                    ${actionButton}
                 </div>
             </div>
         </div>`;
     }).join('');
+    
+    document.querySelectorAll('.book-slot-btn').forEach(btn => {
+        btn.addEventListener('click', () => openBookingModal(btn.dataset.slot));
+    });
+    document.querySelectorAll('.cancel-booking-btn').forEach(btn => {
+        btn.addEventListener('click', () => cancelBooking(btn.dataset.slot));
+    });
 }
 
-function openBooking(slotId) {
-    selSlot = slotId;
+function openBookingModal(slotId) {
+    selectedSlotId = slotId;
     const modal = document.getElementById('mBooking');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     
-    loadSlotsForDate(selDate).then(slots => {
+    loadSlotsForDate(selectedDate).then(slots => {
         const slot = slots.find(s => s.id === slotId);
-        if (slot && slot.class_types) {
-            const d = new Date(selDate);
-            document.getElementById('bkInfo').innerHTML = `<div class="flex items-center gap-2"><span class="text-xl">${slot.class_types.emoji}</span><div><div class="font-semibold">${slot.class_types.name}</div><div class="text-slate-400">${d.getDate()} ${MN[d.getMonth()]} · ${slot.time_start}—${slot.time_end}${slot.class_types.teacher ? ' · ' + slot.class_types.teacher : ''}</div></div></div>`;
+        if (slot?.class_types) {
+            const d = new Date(selectedDate);
+            document.getElementById('bkInfo').innerHTML = `<div class="flex items-center gap-2"><span class="text-xl">${slot.class_types.emoji}</span><div><div class="font-semibold">${slot.class_types.name}</div><div class="text-slate-400">${d.getDate()} ${monthNames[d.getMonth()]} · ${slot.time_start}—${slot.time_end}${slot.class_types.teacher ? ' · ' + slot.class_types.teacher : ''}</div></div></div>`;
         }
     });
 }
 
-async function doBooking(event) {
+async function handleBooking(event) {
     event.preventDefault();
-    
     const name = document.getElementById('bkName').value.trim();
     const phone = document.getElementById('bkPhone').value.trim();
     const email = document.getElementById('bkEmail').value.trim();
     const comment = document.getElementById('bkComment').value.trim();
     
     if (!name || !phone) {
-        toast('❌', 'Заполните обязательные поля');
+        showToast('❌', 'Заполните имя и телефон');
         return;
     }
     
-    if (!clientUID) {
-        clientUID = 'u' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('client_uid', clientUID);
+    if (!clientUid) {
+        clientUid = 'u' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('client_uid', clientUid);
     }
     
-    const { error } = await supabase
-        .from('bookings')
-        .insert([{
-            slot_id: selSlot,
-            client_uid: clientUID,
-            client_name: name,
-            client_phone: phone,
-            client_email: email || null,
-            comment: comment || null,
-            status: 'active'
-        }]);
+    const { error } = await supabaseClient.from('bookings').insert([{
+        slot_id: selectedSlotId,
+        client_uid: clientUid,
+        client_name: name,
+        client_phone: phone,
+        client_email: email || null,
+        comment: comment || null,
+        status: 'active'
+    }]);
     
     if (error) {
-        toast('❌', 'Ошибка при записи: ' + error.message);
+        showToast('❌', 'Ошибка: ' + error.message);
         return;
     }
     
-    toast('✅', 'Вы записаны!');
-    closeM('mBooking');
-    
-    document.getElementById('bkName').value = '';
-    document.getElementById('bkPhone').value = '';
-    document.getElementById('bkEmail').value = '';
-    document.getElementById('bkComment').value = '';
-    
-    await drawGrid();
+    showToast('✅', 'Вы записаны!');
+    closeModal('mBooking');
+    document.getElementById('bookingForm').reset();
+    await renderSchedule();
     await updateStats();
 }
 
 async function cancelBooking(slotId) {
     if (!confirm('Отменить запись?')) return;
     
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('bookings')
         .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('slot_id', slotId)
-        .eq('client_uid', clientUID)
+        .eq('client_uid', clientUid)
         .eq('status', 'active');
     
     if (error) {
-        toast('❌', 'Ошибка при отмене: ' + error.message);
+        showToast('❌', 'Ошибка: ' + error.message);
         return;
     }
     
-    toast('🗑️', 'Запись отменена');
-    await drawGrid();
+    showToast('🗑️', 'Запись отменена');
+    await renderSchedule();
     await updateStats();
 }
 
-async function openMyBookings() {
-    if (!clientUID) {
+async function showMyBookings() {
+    if (!clientUid) {
         document.getElementById('myList').innerHTML = '<div class="text-center py-8 text-slate-500"><div class="text-3xl mb-2">📋</div><p>Нет записей</p></div>';
         document.getElementById('mMy').classList.remove('hidden');
         document.getElementById('mMy').classList.add('flex');
         return;
     }
     
-    const { data: bookings, error } = await supabase
+    const { data: bookings } = await supabaseClient
         .from('bookings')
-        .select(`
-            *,
-            slots (
-                *,
-                class_types (*)
-            )
-        `)
-        .eq('client_uid', clientUID)
+        .select('*, slots(*, class_types(*))')
+        .eq('client_uid', clientUid)
         .eq('status', 'active')
         .order('booked_at', { ascending: false });
     
-    if (error) {
-        toast('❌', 'Ошибка загрузки записей');
-        return;
-    }
-    
-    const c = document.getElementById('myList');
+    const container = document.getElementById('myList');
     if (!bookings?.length) {
-        c.innerHTML = '<div class="text-center py-8 text-slate-500"><div class="text-3xl mb-2">📋</div><p>Нет записей</p></div>';
+        container.innerHTML = '<div class="text-center py-8 text-slate-500"><div class="text-3xl mb-2">📋</div><p>Нет записей</p></div>';
     } else {
-        c.innerHTML = bookings.map(b => {
+        container.innerHTML = bookings.map(b => {
             const slot = b.slots;
             const classInfo = slot?.class_types;
-            const past = new Date(slot?.slot_date) < new Date(new Date().toDateString());
-            return `<div class="bg-white/5 rounded-lg p-3 fade-in ${past ? 'opacity-40' : ''}">
+            const isPast = new Date(slot?.slot_date) < new Date(new Date().toDateString());
+            return `<div class="bg-white/5 rounded-lg p-3 fade-in ${isPast ? 'opacity-40' : ''}">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">${classInfo?.emoji || '📚'}</span>
-                        <div>
-                            <div class="font-medium text-sm">${classInfo?.name || 'Занятие'} ${past ? '<span class="text-[10px] text-slate-500">(прошло)</span>' : ''}</div>
-                            <div class="text-xs text-slate-400">${slot ? new Date(slot.slot_date).getDate() + ' ' + MN[new Date(slot.slot_date).getMonth()] + ' · ' + slot.time_start + '—' + slot.time_end : ''}</div>
-                        </div>
+                    <div><span class="text-lg">${classInfo?.emoji || '📚'}</span>
+                        <div class="font-medium text-sm">${classInfo?.name || 'Занятие'} ${isPast ? '<span class="text-[10px] text-slate-500">(прошло)</span>' : ''}</div>
+                        <div class="text-xs text-slate-400">${slot ? new Date(slot.slot_date).getDate() + ' ' + monthNames[new Date(slot.slot_date).getMonth()] + ' · ' + slot.time_start + '—' + slot.time_end : ''}</div>
                     </div>
-                    ${!past ? `<button onclick="window.cancelBooking('${b.slot_id}')" class="text-xs text-red-400 hover:text-red-300 underline">Отменить</button>` : ''}
+                    ${!isPast ? `<button class="cancel-booking-modal-btn text-xs text-red-400 hover:text-red-300 underline" data-slot="${b.slot_id}">Отменить</button>` : ''}
                 </div>
             </div>`;
         }).join('');
     }
     
+    document.querySelectorAll('.cancel-booking-modal-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await cancelBooking(btn.dataset.slot);
+            await showMyBookings();
+        });
+    });
+    
     document.getElementById('mMy').classList.remove('hidden');
     document.getElementById('mMy').classList.add('flex');
 }
 
+// ==================== АДМИНКА ====================
 async function toggleAdmin() {
-    if (!admin) {
-        const p = prompt('Пароль администратора:');
-        if (p !== 'admin123') {
-            if (p !== null) toast('❌', 'Неверный пароль');
+    if (!isAdmin) {
+        const password = prompt('Пароль администратора:');
+        if (password !== 'admin123') {
+            if (password) showToast('❌', 'Неверный пароль');
             return;
         }
-        admin = true;
-        document.getElementById('btnAdmin').textContent = '⚙️ Админ ✓';
-        document.getElementById('btnAdmin').classList.add('bg-amber-600');
+        isAdmin = true;
+        const adminBtn = document.getElementById('adminBtn');
+        adminBtn.textContent = '⚙️ Админ ✓';
+        adminBtn.classList.add('bg-amber-600');
     }
     
-    await admSlots();
-    await admClasses();
-    await admBookings();
+    await refreshAdminSlots();
+    await refreshAdminClasses();
+    await refreshAdminBookings();
     
     document.getElementById('mAdmin').classList.remove('hidden');
     document.getElementById('mAdmin').classList.add('flex');
 }
 
-function admTab(t) {
-    ['slots', 'classes', 'bookings'].forEach(x => {
-        document.getElementById('tab-' + x).classList.toggle('hidden', x !== t);
-        const b = document.getElementById('at-' + x);
-        b.classList.toggle('bg-blue-600', x === t);
-        b.classList.toggle('text-white', x === t);
-        b.classList.toggle('glass', x !== t);
-        b.classList.toggle('text-slate-400', x !== t);
+function switchAdminTab(tabId) {
+    document.getElementById('tab-classes').classList.add('hidden');
+    document.getElementById('tab-slots').classList.add('hidden');
+    document.getElementById('tab-bookings').classList.add('hidden');
+    document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+    
+    document.querySelectorAll('.adm-tab').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('glass', 'text-slate-400');
+    });
+    const activeBtn = document.querySelector(`[data-tab="${tabId}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+        activeBtn.classList.remove('glass', 'text-slate-400');
+    }
+}
+
+async function refreshAdminClassSelect() {
+    await loadClasses();
+    const select = document.getElementById('sClass');
+    select.innerHTML = allClasses.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+}
+
+async function handleAddClass(event) {
+    event.preventDefault();
+    const { error } = await supabaseClient.from('class_types').insert([{
+        name: document.getElementById('ncName').value.trim(),
+        teacher: document.getElementById('ncTeacher').value.trim(),
+        duration_minutes: parseInt(document.getElementById('ncDuration').value) || 60,
+        emoji: document.getElementById('ncEmoji').value || '📚'
+    }]);
+    
+    if (error) showToast('❌', 'Ошибка: ' + error.message);
+    else {
+        showToast('✅', 'Занятие добавлено');
+        document.getElementById('addClassForm').reset();
+        document.getElementById('ncDuration').value = '60';
+        document.getElementById('ncEmoji').value = '📚';
+        await refreshAdminClasses();
+        await refreshAdminClassSelect();
+        await renderFilters();
+        await updateStats();
+    }
+}
+
+async function refreshAdminClasses() {
+    await loadClasses();
+    const container = document.getElementById('classesList');
+    container.innerHTML = allClasses.map(c => `
+        <div class="bg-white/5 rounded-lg p-2.5 flex justify-between fade-in">
+            <div><span>${c.emoji}</span> <span class="text-sm font-medium">${c.name}</span><div class="text-[10px] text-slate-400">${c.teacher || '—'} · ${c.duration_minutes} мин</div></div>
+            <button class="delete-class-btn text-red-400 hover:text-red-300 text-xs" data-id="${c.id}">Удалить</button>
+        </div>
+    `).join('');
+    
+    document.querySelectorAll('.delete-class-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteClass(parseInt(btn.dataset.id)));
     });
 }
 
-async function updateAdminClassSelect() {
-    await loadClasses();
-    const select = document.getElementById('sClass');
-    if (select) {
-        select.innerHTML = classesData.map(c => `<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+async function deleteClass(classId) {
+    if (!confirm('Удалить занятие? Все слоты и записи будут удалены.')) return;
+    const { error } = await supabaseClient.from('class_types').delete().eq('id', classId);
+    if (error) showToast('❌', 'Ошибка: ' + error.message);
+    else {
+        showToast('🗑️', 'Занятие удалено');
+        await refreshAdminClasses();
+        await refreshAdminClassSelect();
+        await renderFilters();
+        await renderSchedule();
+        await updateStats();
     }
 }
 
-async function addClass(event) {
+async function handleAddSlots(event) {
     event.preventDefault();
-    
-    const name = document.getElementById('ncName').value.trim();
-    const teacher = document.getElementById('ncTeacher').value.trim();
-    const duration = parseInt(document.getElementById('ncDuration').value) || 60;
-    const emoji = document.getElementById('ncEmoji').value || '📚';
-    
-    const { error } = await supabase
-        .from('class_types')
-        .insert([{ name, teacher, duration_minutes: duration, emoji }]);
-    
-    if (error) {
-        toast('❌', 'Ошибка: ' + error.message);
-        return;
-    }
-    
-    toast('✅', 'Занятие добавлено');
-    document.getElementById('ncName').value = '';
-    document.getElementById('ncTeacher').value = '';
-    document.getElementById('ncDuration').value = '60';
-    document.getElementById('ncEmoji').value = '📚';
-    
-    await loadClasses();
-    await admClasses();
-    await updateAdminClassSelect();
-    await drawFilters();
-    await updateStats();
-}
-
-async function admClasses() {
-    await loadClasses();
-    const container = document.getElementById('classesList');
-    container.innerHTML = classesData.map(c => `
-        <div class="bg-white/5 rounded-lg p-2.5 flex items-center justify-between fade-in">
-            <div class="flex items-center gap-2">
-                <span>${c.emoji}</span>
-                <div>
-                    <div class="text-sm font-medium">${c.name}</div>
-                    <div class="text-[10px] text-slate-400">${c.teacher || '—'} · ${c.duration_minutes} мин</div>
-                </div>
-            </div>
-            <button onclick="window.deleteClass(${c.id})" class="text-red-400 hover:text-red-300 text-xs">Удалить</button>
-        </div>
-    `).join('');
-}
-
-async function deleteClass(id) {
-    if (!confirm('Удалить занятие? Все связанные слоты и записи также будут удалены.')) return;
-    
-    const { error } = await supabase
-        .from('class_types')
-        .delete()
-        .eq('id', id);
-    
-    if (error) {
-        toast('❌', 'Ошибка: ' + error.message);
-        return;
-    }
-    
-    toast('🗑️', 'Занятие удалено');
-    await loadClasses();
-    await admClasses();
-    await updateAdminClassSelect();
-    await drawFilters();
-    await drawGrid();
-    await updateStats();
-}
-
-async function addSlots(event) {
-    event.preventDefault();
-    
     const weekStart = document.getElementById('sWeek').value;
     const classId = parseInt(document.getElementById('sClass').value);
     const startTime = document.getElementById('sTStart').value;
@@ -688,8 +584,8 @@ async function addSlots(event) {
         selectedDays.push(parseInt(cb.value));
     });
     
-    if (selectedDays.length === 0) {
-        toast('❌', 'Выберите хотя бы один день');
+    if (!selectedDays.length) {
+        showToast('❌', 'Выберите дни');
         return;
     }
     
@@ -702,123 +598,77 @@ async function addSlots(event) {
         const dateStr = slotDate.toISOString().split('T')[0];
         const slotId = `s${dateStr.replace(/-/g, '')}c${classId}${startTime.replace(':', '')}`;
         
-        const { data: existing } = await supabase
-            .from('slots')
-            .select('id')
-            .eq('id', slotId)
-            .maybeSingle();
-        
+        const { data: existing } = await supabaseClient.from('slots').select('id').eq('id', slotId).maybeSingle();
         if (!existing) {
-            const { error } = await supabase
-                .from('slots')
-                .insert([{
-                    id: slotId,
-                    class_id: classId,
-                    slot_date: dateStr,
-                    time_start: startTime,
-                    time_end: endTime,
-                    max_capacity: maxCapacity
-                }]);
-            
+            const { error } = await supabaseClient.from('slots').insert([{
+                id: slotId, class_id: classId, slot_date: dateStr,
+                time_start: startTime, time_end: endTime, max_capacity: maxCapacity
+            }]);
             if (!error) created++;
         }
     }
     
-    toast('✅', `Создано ${created} слотов`);
-    await admSlots();
-    await drawGrid();
+    showToast('✅', `Создано ${created} слотов`);
+    await refreshAdminSlots();
+    await renderSchedule();
     await updateStats();
 }
 
-async function admSlots() {
+async function refreshAdminSlots() {
     const today = new Date();
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - today.getDay() + 1);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     
-    const startStr = weekStart.toISOString().split('T')[0];
-    const endStr = weekEnd.toISOString().split('T')[0];
-    
-    const { data: slots, error } = await supabase
+    const { data: slots } = await supabaseClient
         .from('slots')
         .select('*, class_types(*)')
-        .gte('slot_date', startStr)
-        .lte('slot_date', endStr)
-        .order('slot_date')
-        .order('time_start');
+        .gte('slot_date', weekStart.toISOString().split('T')[0])
+        .lte('slot_date', weekEnd.toISOString().split('T')[0])
+        .order('slot_date').order('time_start');
     
-    if (error) {
-        document.getElementById('slotsList').innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Ошибка загрузки</div>';
-        return;
-    }
-    
-    const { data: bookings } = await supabase
-        .from('bookings')
-        .select('slot_id')
-        .eq('status', 'active');
-    
-    const bookingsCount = {};
-    bookings?.forEach(b => {
-        bookingsCount[b.slot_id] = (bookingsCount[b.slot_id] || 0) + 1;
-    });
+    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
+    const bookingCount = {};
+    bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
     
     const container = document.getElementById('slotsList');
     if (!slots?.length) {
-        container.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Нет слотов на эту неделю</div>';
+        container.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Нет слотов</div>';
         return;
     }
     
-    container.innerHTML = slots.map(slot => {
-        const currentBookings = bookingsCount[slot.id] || 0;
-        return `
-            <div class="bg-white/5 rounded-lg p-2.5 flex items-center justify-between fade-in">
-                <div>
-                    <div class="text-sm font-medium">${slot.class_types?.emoji} ${slot.class_types?.name}</div>
-                    <div class="text-[10px] text-slate-400">${DNF[new Date(slot.slot_date).getDay()]}, ${new Date(slot.slot_date).getDate()} ${MN[new Date(slot.slot_date).getMonth()]} · ${slot.time_start}—${slot.time_end} · ${currentBookings}/${slot.max_capacity}</div>
-                </div>
-                <button onclick="window.deleteSlot('${slot.id}')" class="text-red-400 hover:text-red-300 text-xs">Удалить</button>
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = slots.map(slot => `
+        <div class="bg-white/5 rounded-lg p-2.5 flex justify-between fade-in">
+            <div><div class="text-sm font-medium">${slot.class_types?.emoji} ${slot.class_types?.name}</div>
+            <div class="text-[10px] text-slate-400">${dayNamesFull[new Date(slot.slot_date).getDay()]}, ${new Date(slot.slot_date).getDate()} ${monthNames[new Date(slot.slot_date).getMonth()]} · ${slot.time_start}—${slot.time_end} · ${bookingCount[slot.id] || 0}/${slot.max_capacity}</div></div>
+            <button class="delete-slot-btn text-red-400 hover:text-red-300 text-xs" data-id="${slot.id}">Удалить</button>
+        </div>
+    `).join('');
+    
+    document.querySelectorAll('.delete-slot-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteSlot(btn.dataset.id));
+    });
 }
 
 async function deleteSlot(slotId) {
-    if (!confirm('Удалить слот и все записи на него?')) return;
-    
-    const { error } = await supabase
-        .from('slots')
-        .delete()
-        .eq('id', slotId);
-    
-    if (error) {
-        toast('❌', 'Ошибка: ' + error.message);
-        return;
+    if (!confirm('Удалить слот и все записи?')) return;
+    const { error } = await supabaseClient.from('slots').delete().eq('id', slotId);
+    if (error) showToast('❌', 'Ошибка: ' + error.message);
+    else {
+        showToast('🗑️', 'Слот удалён');
+        await refreshAdminSlots();
+        await renderSchedule();
+        await updateStats();
     }
-    
-    toast('🗑️', 'Слот удалён');
-    await admSlots();
-    await drawGrid();
-    await updateStats();
 }
 
-async function admBookings() {
-    const { data: bookings, error } = await supabase
+async function refreshAdminBookings() {
+    const { data: bookings } = await supabaseClient
         .from('bookings')
-        .select(`
-            *,
-            slots (
-                *,
-                class_types (*)
-            )
-        `)
+        .select('*, slots(*, class_types(*))')
         .eq('status', 'active')
         .order('booked_at', { ascending: false });
-    
-    if (error) {
-        document.getElementById('allBookingsList').innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">Ошибка загрузки</div>';
-        return;
-    }
     
     const container = document.getElementById('allBookingsList');
     if (!bookings?.length) {
@@ -829,87 +679,103 @@ async function admBookings() {
     container.innerHTML = bookings.map(b => {
         const slot = b.slots;
         const classInfo = slot?.class_types;
-        return `
-            <div class="bg-white/5 rounded-lg p-2.5 fade-in">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-sm font-medium">${classInfo?.emoji} ${classInfo?.name}</div>
-                        <div class="text-xs text-slate-400">👤 ${b.client_name} · 📞 ${b.client_phone}</div>
-                        <div class="text-[10px] text-slate-500">${slot ? new Date(slot.slot_date).getDate() + ' ' + MN[new Date(slot.slot_date).getMonth()] + ' · ' + slot.time_start + '—' + slot.time_end : ''} ${b.client_email ? '· ' + b.client_email : ''}</div>
-                    </div>
-                    <button onclick="window.adminCancelBooking(${b.id})" class="text-red-400 hover:text-red-300 text-xs">Отменить</button>
-                </div>
-            </div>
-        `;
+        return `<div class="bg-white/5 rounded-lg p-2.5 fade-in">
+            <div class="flex justify-between"><div><div class="text-sm font-medium">${classInfo?.emoji} ${classInfo?.name}</div>
+            <div class="text-xs text-slate-400">👤 ${b.client_name} · 📞 ${b.client_phone}</div>
+            <div class="text-[10px] text-slate-500">${slot ? new Date(slot.slot_date).getDate() + ' ' + monthNames[new Date(slot.slot_date).getMonth()] + ' · ' + slot.time_start + '—' + slot.time_end : ''}</div></div>
+            <button class="admin-cancel-btn text-red-400 hover:text-red-300 text-xs" data-id="${b.id}">Отменить</button></div>
+        </div>`;
     }).join('');
+    
+    document.querySelectorAll('.admin-cancel-btn').forEach(btn => {
+        btn.addEventListener('click', () => adminCancelBooking(parseInt(btn.dataset.id)));
+    });
 }
 
 async function adminCancelBooking(bookingId) {
     if (!confirm('Отменить запись?')) return;
-    
-    const { error } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('id', bookingId);
-    
-    if (error) {
-        toast('❌', 'Ошибка: ' + error.message);
-        return;
+    const { error } = await supabaseClient.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
+    if (error) showToast('❌', 'Ошибка: ' + error.message);
+    else {
+        showToast('🗑️', 'Запись отменена');
+        await refreshAdminBookings();
+        await renderSchedule();
+        await updateStats();
     }
-    
-    toast('🗑️', 'Запись отменена');
-    await admBookings();
-    await drawGrid();
-    await updateStats();
 }
 
-function closeM(id) {
-    document.getElementById(id).classList.add('hidden');
-    document.getElementById(id).classList.remove('flex');
+// ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
-function toast(icon, text) {
-    const t = document.getElementById('toast');
+function showToast(icon, text) {
+    const toast = document.getElementById('toast');
     document.getElementById('toastI').textContent = icon;
     document.getElementById('toastT').textContent = text;
-    t.classList.remove('hidden');
-    setTimeout(() => t.classList.add('hidden'), 3000);
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+function renderDayCheckboxes() {
+    const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const values = [1, 2, 3, 4, 5, 6, 0];
+    const container = document.getElementById('dayCheckboxes');
+    container.innerHTML = days.map((day, i) => `
+        <label class="flex items-center gap-1 px-2 py-1 rounded bg-white/5 cursor-pointer text-xs"><input type="checkbox" value="${values[i]}" class="accent-blue-500">${day}</label>
+    `).join('');
 }
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 (async function init() {
-    const t = new Date();
-    selDate = t.toISOString().split('T')[0];
+    const today = new Date();
+    selectedDate = today.toISOString().split('T')[0];
     
     await loadClasses();
-    await drawDays();
-    await drawFilters();
-    await drawGrid();
+    await renderDays();
+    await renderFilters();
+    await renderSchedule();
     await updateStats();
-    await updateAdminClassSelect();
+    await refreshAdminClassSelect();
+    renderDayCheckboxes();
     
-    const mon = new Date(t);
-    mon.setDate(t.getDate() - t.getDay() + 1);
-    const sw = document.getElementById('sWeek');
-    if (sw) sw.value = mon.toISOString().split('T')[0];
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + 1);
+    const weekStartInput = document.getElementById('sWeek');
+    if (weekStartInput) weekStartInput.value = monday.toISOString().split('T')[0];
     
-    // Делаем функции доступными глобально
-    window.navWeek = navWeek;
-    window.pickDay = pickDay;
-    window.setFilter = setFilter;
-    window.openBooking = openBooking;
-    window.doBooking = doBooking;
-    window.cancelBooking = cancelBooking;
-    window.openMyBookings = openMyBookings;
-    window.toggleAdmin = toggleAdmin;
-    window.closeM = closeM;
-    window.admTab = admTab;
-    window.addClass = addClass;
-    window.addSlots = addSlots;
-    window.deleteClass = deleteClass;
-    window.deleteSlot = deleteSlot;
-    window.adminCancelBooking = adminCancelBooking;
-    window.toast = toast;
+    // Обработчики событий
+    document.getElementById('prevWeekBtn').addEventListener('click', () => changeWeek(-1));
+    document.getElementById('nextWeekBtn').addEventListener('click', () => changeWeek(1));
+    document.getElementById('adminBtn').addEventListener('click', toggleAdmin);
+    document.getElementById('myBookingsBtn').addEventListener('click', showMyBookings);
+    
+    document.querySelectorAll('[data-filter="all"]').forEach(btn => {
+        btn.addEventListener('click', () => applyFilter('all'));
+    });
+    
+    document.getElementById('bookingForm').addEventListener('submit', handleBooking);
+    document.getElementById('addClassForm').addEventListener('submit', handleAddClass);
+    document.getElementById('addSlotsForm').addEventListener('submit', handleAddSlots);
+    
+    document.querySelectorAll('.adm-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchAdminTab(btn.dataset.tab));
+    });
+    
+    document.querySelectorAll('.closeModalBtn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const modal = e.target.closest('.modal-bg');
+            if (modal) closeModal(modal.id);
+        });
+    });
+    
+    document.querySelectorAll('.modal-bg').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal(modal.id);
+        });
+    });
 })();
 </script>
 </body>
