@@ -77,7 +77,7 @@
     </div>
 </main>
 
-<!-- Модальные окна -->
+<!-- Модальные окна (оставляем те же) -->
 <div id="mBooking" class="fixed inset-0 z-50 hidden items-center justify-center modal-bg">
     <div class="glass rounded-2xl p-6 max-w-md w-full mx-4 fade-in">
         <div class="flex justify-between mb-4"><h3 class="text-lg font-bold">📝 Запись</h3><button class="closeModalBtn text-slate-400 hover:text-white text-2xl">&times;</button></div>
@@ -138,12 +138,12 @@
 
 <script>
 // ==================== НАСТРОЙКИ SUPABASE ====================
-// ВАЖНО: ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ НА ВАШИ!
+// ВАЖНО: URL должен быть без /rest/v1/, только базовый адрес проекта
 const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';
 
-// СОЗДАЕМ КЛИЕНТ
-const supabaseClient = supabase.createClient('https://kykltcbhvgvtzzfnspfw.supabase.co', 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF');
+// СОЗДАЁМ КЛИЕНТ С УНИКАЛЬНЫМ ИМЕНЕМ, ЧТОБЫ ИЗБЕЖАТЬ КОНФЛИКТОВ
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==================== ПЕРЕМЕННЫЕ ====================
 let currentWeekOffset = 0;
@@ -158,15 +158,15 @@ const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const dayNamesFull = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 
-// ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
+// ==================== ОСНОВНЫЕ ФУНКЦИИ (везде заменяем supabase на supabaseClient) ====================
 async function loadClasses() {
-    const { data, error } = await supabase.from('class_types').select('*').order('id');
+    const { data, error } = await supabaseClient.from('class_types').select('*').order('id');
     if (!error) allClasses = data;
     return allClasses;
 }
 
 async function loadSlotsForDate(date) {
-    const { data: slots, error } = await supabase
+    const { data: slots, error } = await supabaseClient
         .from('slots')
         .select('*, class_types(*)')
         .eq('slot_date', date)
@@ -174,7 +174,7 @@ async function loadSlotsForDate(date) {
     if (error) return [];
     
     if (slots.length && clientUid) {
-        const { data: bookings } = await supabase
+        const { data: bookings } = await supabaseClient
             .from('bookings')
             .select('*')
             .in('slot_id', slots.map(s => s.id))
@@ -189,7 +189,7 @@ async function loadSlotsForDate(date) {
         });
     }
     
-    const { data: allBookings } = await supabase
+    const { data: allBookings } = await supabaseClient
         .from('bookings')
         .select('slot_id')
         .in('slot_id', slots.map(s => s.id))
@@ -206,8 +206,8 @@ async function loadSlotsForDate(date) {
 }
 
 async function updateStats() {
-    const { data: slots } = await supabase.from('slots').select('id, max_capacity');
-    const { data: bookings } = await supabase.from('bookings').select('slot_id').eq('status', 'active');
+    const { data: slots } = await supabaseClient.from('slots').select('id, max_capacity');
+    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
     
     const bookingCount = {};
     bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
@@ -387,7 +387,7 @@ async function handleBooking(event) {
         localStorage.setItem('client_uid', clientUid);
     }
     
-    const { error } = await supabase.from('bookings').insert([{
+    const { error } = await supabaseClient.from('bookings').insert([{
         slot_id: selectedSlotId,
         client_uid: clientUid,
         client_name: name,
@@ -412,7 +412,7 @@ async function handleBooking(event) {
 async function cancelBooking(slotId) {
     if (!confirm('Отменить запись?')) return;
     
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('bookings')
         .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('slot_id', slotId)
@@ -437,7 +437,7 @@ async function showMyBookings() {
         return;
     }
     
-    const { data: bookings } = await supabase
+    const { data: bookings } = await supabaseClient
         .from('bookings')
         .select('*, slots(*, class_types(*))')
         .eq('client_uid', clientUid)
@@ -522,7 +522,7 @@ async function refreshAdminClassSelect() {
 
 async function handleAddClass(event) {
     event.preventDefault();
-    const { error } = await supabase.from('class_types').insert([{
+    const { error } = await supabaseClient.from('class_types').insert([{
         name: document.getElementById('ncName').value.trim(),
         teacher: document.getElementById('ncTeacher').value.trim(),
         duration_minutes: parseInt(document.getElementById('ncDuration').value) || 60,
@@ -559,7 +559,7 @@ async function refreshAdminClasses() {
 
 async function deleteClass(classId) {
     if (!confirm('Удалить занятие? Все слоты и записи будут удалены.')) return;
-    const { error } = await supabase.from('class_types').delete().eq('id', classId);
+    const { error } = await supabaseClient.from('class_types').delete().eq('id', classId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Занятие удалено');
@@ -598,9 +598,9 @@ async function handleAddSlots(event) {
         const dateStr = slotDate.toISOString().split('T')[0];
         const slotId = `s${dateStr.replace(/-/g, '')}c${classId}${startTime.replace(':', '')}`;
         
-        const { data: existing } = await supabase.from('slots').select('id').eq('id', slotId).maybeSingle();
+        const { data: existing } = await supabaseClient.from('slots').select('id').eq('id', slotId).maybeSingle();
         if (!existing) {
-            const { error } = await supabase.from('slots').insert([{
+            const { error } = await supabaseClient.from('slots').insert([{
                 id: slotId, class_id: classId, slot_date: dateStr,
                 time_start: startTime, time_end: endTime, max_capacity: maxCapacity
             }]);
@@ -621,14 +621,14 @@ async function refreshAdminSlots() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     
-    const { data: slots } = await supabase
+    const { data: slots } = await supabaseClient
         .from('slots')
         .select('*, class_types(*)')
         .gte('slot_date', weekStart.toISOString().split('T')[0])
         .lte('slot_date', weekEnd.toISOString().split('T')[0])
         .order('slot_date').order('time_start');
     
-    const { data: bookings } = await supabase.from('bookings').select('slot_id').eq('status', 'active');
+    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
     const bookingCount = {};
     bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
     
@@ -653,7 +653,7 @@ async function refreshAdminSlots() {
 
 async function deleteSlot(slotId) {
     if (!confirm('Удалить слот и все записи?')) return;
-    const { error } = await supabase.from('slots').delete().eq('id', slotId);
+    const { error } = await supabaseClient.from('slots').delete().eq('id', slotId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Слот удалён');
@@ -664,7 +664,7 @@ async function deleteSlot(slotId) {
 }
 
 async function refreshAdminBookings() {
-    const { data: bookings } = await supabase
+    const { data: bookings } = await supabaseClient
         .from('bookings')
         .select('*, slots(*, class_types(*))')
         .eq('status', 'active')
@@ -694,7 +694,7 @@ async function refreshAdminBookings() {
 
 async function adminCancelBooking(bookingId) {
     if (!confirm('Отменить запись?')) return;
-    const { error } = await supabase.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
+    const { error } = await supabaseClient.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Запись отменена');
@@ -746,7 +746,6 @@ function renderDayCheckboxes() {
     const weekStartInput = document.getElementById('sWeek');
     if (weekStartInput) weekStartInput.value = monday.toISOString().split('T')[0];
     
-    // Обработчики событий
     document.getElementById('prevWeekBtn').addEventListener('click', () => changeWeek(-1));
     document.getElementById('nextWeekBtn').addEventListener('click', () => changeWeek(1));
     document.getElementById('adminBtn').addEventListener('click', toggleAdmin);
