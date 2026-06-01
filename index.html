@@ -139,11 +139,11 @@
 <script>
 // ==================== НАСТРОЙКИ SUPABASE ====================
 // ВАЖНО: ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ НА ВАШИ!
-const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';
 
 // СОЗДАЕМ КЛИЕНТ
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = supabase.createClient('https://kykltcbhvgvtzzfnspfw.supabase.co', 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF');
 
 // ==================== ПЕРЕМЕННЫЕ ====================
 let currentWeekOffset = 0;
