@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Запись на занятия</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { font-family: 'Segoe UI', system-ui, sans-serif; }
@@ -13,12 +13,12 @@
         .slot-free { background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; cursor: pointer; transition: all 0.2s; }
         .slot-free:hover { box-shadow: 0 0 20px rgba(16,185,129,0.4); transform: translateY(-2px); }
         .slot-occupied { background: linear-gradient(135deg, #7f1d1d, #6b1a1a); border: 1px solid #ef4444; opacity: 0.7; }
-        .slot-my { background: linear-gradient(135deg, #1e3a5f, #1e3a5f); border: 1px solid #3b82f6; }
+        .slot-my { background: linear-gradient(135deg, #1e3a5f, #1e3a5f); border: 1px solid #3b82f6; cursor: pointer; }
         .slot-my:hover { box-shadow: 0 0 20px rgba(59,130,246,0.4); transform: translateY(-2px); }
         .btn-primary { background: linear-gradient(135deg, #3b82f6, #6366f1); }
         .btn-primary:hover { background: linear-gradient(135deg, #2563eb, #4f46e5); }
         .day-tab.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; }
-        .day-tab { background: rgba(51,65,85,0.5); color: #94a3b8; cursor: pointer; }
+        .day-tab { background: rgba(51,65,85,0.5); color: #94a3b8; cursor: pointer; transition: all 0.2s; }
         .day-tab:hover:not(.active) { background: rgba(71,85,105,0.7); color: #e2e8f0; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -137,12 +137,13 @@
 <div id="toast" class="fixed bottom-5 right-5 z-[60] hidden"><div class="glass rounded-xl px-5 py-3 fade-in flex items-center gap-2 text-sm"><span id="toastI"></span><span id="toastT"></span></div></div>
 
 <script>
-// ==================== НАСТРОЙКИ SUPABASE (ЗАМЕНИТЕ НА ВАШИ) ====================
-const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co/rest/v1/;  // ЗАМЕНИТЕ!
-const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';  // ЗАМЕНИТЕ!
+// ==================== НАСТРОЙКИ SUPABASE ====================
+// ВАЖНО: ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ НА ВАШИ!
+const SUPABASE_URL = 'https://kykltcbhvgvtzzfnspfw.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_stYfC8dqXjZKw56AExgjqg_xFzmkOaF';
 
-// СОЗДАЕМ КЛИЕНТ ТОЛЬКО ОДИН РАЗ
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// СОЗДАЕМ КЛИЕНТ
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==================== ПЕРЕМЕННЫЕ ====================
 let currentWeekOffset = 0;
@@ -159,13 +160,13 @@ const dayNamesFull = ['Воскресенье', 'Понедельник', 'Вт�
 
 // ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
 async function loadClasses() {
-    const { data, error } = await supabaseClient.from('class_types').select('*').order('id');
+    const { data, error } = await supabase.from('class_types').select('*').order('id');
     if (!error) allClasses = data;
     return allClasses;
 }
 
 async function loadSlotsForDate(date) {
-    const { data: slots, error } = await supabaseClient
+    const { data: slots, error } = await supabase
         .from('slots')
         .select('*, class_types(*)')
         .eq('slot_date', date)
@@ -173,7 +174,7 @@ async function loadSlotsForDate(date) {
     if (error) return [];
     
     if (slots.length && clientUid) {
-        const { data: bookings } = await supabaseClient
+        const { data: bookings } = await supabase
             .from('bookings')
             .select('*')
             .in('slot_id', slots.map(s => s.id))
@@ -188,8 +189,7 @@ async function loadSlotsForDate(date) {
         });
     }
     
-    // Подсчет занятости
-    const { data: allBookings } = await supabaseClient
+    const { data: allBookings } = await supabase
         .from('bookings')
         .select('slot_id')
         .in('slot_id', slots.map(s => s.id))
@@ -206,8 +206,8 @@ async function loadSlotsForDate(date) {
 }
 
 async function updateStats() {
-    const { data: slots } = await supabaseClient.from('slots').select('id, max_capacity');
-    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
+    const { data: slots } = await supabase.from('slots').select('id, max_capacity');
+    const { data: bookings } = await supabase.from('bookings').select('slot_id').eq('status', 'active');
     
     const bookingCount = {};
     bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
@@ -387,7 +387,7 @@ async function handleBooking(event) {
         localStorage.setItem('client_uid', clientUid);
     }
     
-    const { error } = await supabaseClient.from('bookings').insert([{
+    const { error } = await supabase.from('bookings').insert([{
         slot_id: selectedSlotId,
         client_uid: clientUid,
         client_name: name,
@@ -412,7 +412,7 @@ async function handleBooking(event) {
 async function cancelBooking(slotId) {
     if (!confirm('Отменить запись?')) return;
     
-    const { error } = await supabaseClient
+    const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('slot_id', slotId)
@@ -437,7 +437,7 @@ async function showMyBookings() {
         return;
     }
     
-    const { data: bookings } = await supabaseClient
+    const { data: bookings } = await supabase
         .from('bookings')
         .select('*, slots(*, class_types(*))')
         .eq('client_uid', clientUid)
@@ -522,7 +522,7 @@ async function refreshAdminClassSelect() {
 
 async function handleAddClass(event) {
     event.preventDefault();
-    const { error } = await supabaseClient.from('class_types').insert([{
+    const { error } = await supabase.from('class_types').insert([{
         name: document.getElementById('ncName').value.trim(),
         teacher: document.getElementById('ncTeacher').value.trim(),
         duration_minutes: parseInt(document.getElementById('ncDuration').value) || 60,
@@ -559,7 +559,7 @@ async function refreshAdminClasses() {
 
 async function deleteClass(classId) {
     if (!confirm('Удалить занятие? Все слоты и записи будут удалены.')) return;
-    const { error } = await supabaseClient.from('class_types').delete().eq('id', classId);
+    const { error } = await supabase.from('class_types').delete().eq('id', classId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Занятие удалено');
@@ -598,9 +598,9 @@ async function handleAddSlots(event) {
         const dateStr = slotDate.toISOString().split('T')[0];
         const slotId = `s${dateStr.replace(/-/g, '')}c${classId}${startTime.replace(':', '')}`;
         
-        const { data: existing } = await supabaseClient.from('slots').select('id').eq('id', slotId).maybeSingle();
+        const { data: existing } = await supabase.from('slots').select('id').eq('id', slotId).maybeSingle();
         if (!existing) {
-            const { error } = await supabaseClient.from('slots').insert([{
+            const { error } = await supabase.from('slots').insert([{
                 id: slotId, class_id: classId, slot_date: dateStr,
                 time_start: startTime, time_end: endTime, max_capacity: maxCapacity
             }]);
@@ -621,14 +621,14 @@ async function refreshAdminSlots() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     
-    const { data: slots } = await supabaseClient
+    const { data: slots } = await supabase
         .from('slots')
         .select('*, class_types(*)')
         .gte('slot_date', weekStart.toISOString().split('T')[0])
         .lte('slot_date', weekEnd.toISOString().split('T')[0])
         .order('slot_date').order('time_start');
     
-    const { data: bookings } = await supabaseClient.from('bookings').select('slot_id').eq('status', 'active');
+    const { data: bookings } = await supabase.from('bookings').select('slot_id').eq('status', 'active');
     const bookingCount = {};
     bookings?.forEach(b => bookingCount[b.slot_id] = (bookingCount[b.slot_id] || 0) + 1);
     
@@ -653,7 +653,7 @@ async function refreshAdminSlots() {
 
 async function deleteSlot(slotId) {
     if (!confirm('Удалить слот и все записи?')) return;
-    const { error } = await supabaseClient.from('slots').delete().eq('id', slotId);
+    const { error } = await supabase.from('slots').delete().eq('id', slotId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Слот удалён');
@@ -664,7 +664,7 @@ async function deleteSlot(slotId) {
 }
 
 async function refreshAdminBookings() {
-    const { data: bookings } = await supabaseClient
+    const { data: bookings } = await supabase
         .from('bookings')
         .select('*, slots(*, class_types(*))')
         .eq('status', 'active')
@@ -694,7 +694,7 @@ async function refreshAdminBookings() {
 
 async function adminCancelBooking(bookingId) {
     if (!confirm('Отменить запись?')) return;
-    const { error } = await supabaseClient.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
+    const { error } = await supabase.from('bookings').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
     if (error) showToast('❌', 'Ошибка: ' + error.message);
     else {
         showToast('🗑️', 'Запись отменена');
